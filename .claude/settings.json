@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api -X PUT repos/majndaw/margonem-mindaw-addons/pulls/*/merge*)"
+    ]
+  }
+}
