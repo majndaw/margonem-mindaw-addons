@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.16.1** (20.10.2026).
+Aktualna wersja: **0.17.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -105,7 +105,12 @@ a 9–16 dopiero po kliknięciu którejś z nich; wbudowana wyszukiwarka widzi t
 Niepotwierdzone: 112 miejsc na stronę (źródło ~2018), oznaczenie lokalizacji `d` (stary interfejs),
 komendy przenoszenia/łączenia w depozycie, możliwość dzielenia stosu w depozycie.
 
-Przed implementacją potrzebne są wyniki dwóch fragmentów konsoli od użytkownika (przy otwartym depozycie):
+**Od 0.17.0** okno 🧰 Depozyt robi to samo bez konsoli: „Zbadaj depozyt” (`depoStudy()`: liczby przedmiotów we wszystkich
+lokacjach a–z, próbka, rozkład x/y/st, powtórzone stosy, klucze `Engine` z „dep”, klasy i HTML okna depozytu) oraz
+„Nagrywaj” (`depoRec()`: komendy `_g` + zmiany loc/x/y/st/ilości wszystkich przedmiotów co 0,4 s). Oba tylko czytają.
+Prośba użytkownika (10.2026): łączyć identyczne stosy na otwartej stronie depozytu; jeśli w depozycie się nie da –
+przenosić je przez 1. torbę (komunikat, ile wolnych miejsc potrzeba), łączyć do limitu i odkładać po kolei do depozytu.
+Implementować dopiero po wyniku „Kopiuj wynik” z gry. Starsze fragmenty konsoli (zapasowo):
 
 ```js
 // 1) Gdzie leżą przedmioty depozytu i jak wygląda strona
