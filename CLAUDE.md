@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.14.0** (20.10.2026).
+Aktualna wersja: **0.15.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -17,8 +17,12 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 
 ## Zasady obowiązkowe
 
+0. **Tryb pracy (decyzja użytkownika, 10.2026):** nie pytać o zgodę na scalenie – po skończeniu zmiany od razu ją
+   scalić na `main` (gałąź + PR + scalenie), żeby działała w grze. Opisy PR i odpowiedzi krótkie.
+
 1. **Nigdy nie usuwać, nie sprzedawać i nie wyrzucać przedmiotów.** Żadnych funkcji tego typu
-   (przycisk „Usuń zaznaczone (Soon)” zostaje nieaktywny).
+   (przycisk „Usuń zaznaczone” został usunięty w 0.15.0 – nie przywracać).
+   Nie dodawać nieaktywnych przycisków „Wkrótce” ani opcji bez widocznego efektu (prośba użytkownika, 0.15.0).
 2. **Każda zmiana w skrypcie = aktualizacja okna „Funkcje”** (okno `help` w tablicy `WINS`):
    - popraw lub dopisz opis w odpowiedniej sekcji (`h-start`, `h-merge`, `h-search`, `h-watch`, `h-loot`,
      `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
@@ -55,6 +59,9 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   Przeciąganie: `press` = przedmiot wciśnięty myszą (nasłuch `mousedown` w fazie capture, tylko obserwacja), ruch > 6 px
   = przeciąganie. **Nie** szukać przeciąganego przedmiotu po klasie `[class*="drag"]` – każdy przedmiot ma `ui-draggable`
   (błąd z 0.13: zawsze wybierał pierwszy przedmiot z ekwipunku). `noteDrop()` zapisuje reakcję gry do Diagnostyki.
+  `release()` (nasłuch `pointerup`/`mouseup` na `window`, capture): puszczenie przeciąganego przedmiotu nad oknem
+  dodatku jest zatrzymywane, a grze wysyłane są sztuczne `pointermove/mousemove/pointerup/mouseup` w miejscu, skąd
+  przedmiot wzięto (przedmiot wraca na miejsce zamiast „na ziemię”). Flaga `replay` chroni przed własną obsługą.
   Wiersze małego okienka przebudowywane tylko przy zmianie HTML (inaczej giną kliknięcia w ✕).
 - **Okna:** `place()` liczy `max-height` treści z pozycji okna i skali (dół okna zawsze na ekranie). Suwaki skali
   i czcionki zapisują wartość na `change` (po puszczeniu) – na `input` okno zmieniało rozmiar pod kursorem i suwak skakał.
@@ -79,9 +86,9 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 - Komenda łączenia `moveitem&st=0…` i częściowe łączenie (gdy cały stos się nie mieści).
 - Wykrywanie otwartej torby, nazwy rzadkości (`heroic`, `legendary`…), klasa przeciąganego przedmiotu
   (`ui-draggable-dragging`), dostępność grafiki przedmiotu, sygnały źródła dropów (okno łupu, skrzynki, komendy).
-- Upuszczenie przedmiotu na okno dodatku wywołuje w grze pytanie o wyrzucenie/zniszczenie (zgłoszenie użytkownika,
-  10.2026). Przyczyna nieznana – okno blokuje `mouseup`, ale nie `pointerup`. Czekamy na linijkę „Ostatnie upuszczenie”
-  z Diagnostyki; do tego czasu nie zmieniać obsługi zdarzeń gry na ślepo.
+- Upuszczenie przedmiotu na okno dodatku wywoływało w grze pytanie o wyrzucenie/zniszczenie (zgłoszenie użytkownika,
+  10.2026, także po 0.14.0). W 0.15.0 puszczenie jest przekierowane na miejsce startu (`release()`) – działa na stronie
+  testowej, w grze niepotwierdzone. Sprawdzić linijkę „Ostatnie upuszczenie” w Diagnostyce.
 
 ## Następny etap: depozyt (tylko łączenie stosów na OTWARTEJ stronie)
 
@@ -132,12 +139,11 @@ Wyniki wklejone przez użytkownika: przed użyciem usuń z nich wszystko, co wyg
 ## Odłożone pomysły (wrócić, gdy użytkownik zapyta o pomysły)
 
 - Kompaktowanie luk w torbie; zebranie jednego typu przedmiotów w jednej torbie.
-- Sortowanie po nazwie / typie / jakości (przyciski już są w oknie Torba, nieaktywne).
+- Sortowanie po nazwie / typie / jakości (nieaktywne przyciski usunięte w 0.15.0 – dodać dopiero działające).
 - Auto-łączenie po zdobyciu przedmiotu (tylko jako opcja do włączenia).
 - Podświetlanie przedmiotu na siatce po kliknięciu wyniku szukania.
 - Filtr po typie przedmiotu (`itemTypeName`), ulubione/ochrona przed łączeniem, statystyki toreb,
   szukanie po poziomie wymaganym.
-- Znany drobiazg: po restarcie przeglądarki otwarte okna wracają, a dock nie (użytkownik chce to najpierw przetestować).
 
 ## Uwaga o zasadach gry
 
