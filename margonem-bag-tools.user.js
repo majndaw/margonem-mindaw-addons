@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.16.1
+// @version      0.17.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.16.1';
+  const VER = '0.17.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -31,7 +31,7 @@
     sv: 2, alpha: 70, scale: 80, accent: 0, theme: 'ciemny', compact: false, font: 14, dock: false,
     showCount: true, verified: false, lootToast: true, lootLoose: false,
     watch: [], watchShow: true, watchCrit: 50, watchRemind: 0,
-    pos: { dock: [20, 100], torba: [162, 100], set: [733, 100], loot: [300, 140], help: [350, 120], watch: [1125, 100] },
+    pos: { dock: [20, 100], torba: [162, 100], set: [733, 100], loot: [300, 140], help: [350, 120], watch: [1125, 100], depo: [400, 140] },
     open: { torba: false, set: false, loot: false, help: false, watch: false }, min: {}, fold: { 'h-log': true },
     history: [], rar: [], last: '',
     keys: { toggle: ['Alt', 'KeyT'], merge: ['Alt', 'KeyQ'], find: ['Alt', 'KeyF'] },
@@ -128,7 +128,7 @@
       html: `<div class="help">` +
         sec('h-start', 'Podstawy obsługi',
           `<ul>
-            <li><b>Dock</b> (pionowy pasek z ikonami) otwiera okna: Torba, Zdobycze, Ustawienia, Funkcje i małe okienko Obserwowane. Depozyt jest w przygotowaniu.</li>
+            <li><b>Dock</b> (pionowy pasek z ikonami) otwiera okna: Torba, Zdobycze, Ustawienia, Funkcje, małe okienko Obserwowane i Depozyt (na razie badanie depozytu).</li>
             <li><b>Kropki</b> w rogu okna (siatka 3×3) służą do przesuwania – tylko one. Każde okno przesuwasz osobno, a dock i ikonę ▣ też.</li>
             <li><b>–</b> zwija okno do paska tytułu, <b>×</b> zamyka. Kliknięcie w nagłówek sekcji zwija ją (stan jest zapamiętywany).</li>
             <li>Kliknięte okno wychodzi na wierzch. Przyciski „Reset” i „Obok siebie” (układa otwarte okna, a gdy brakuje miejsca – kaskadą) w Ustawieniach szybko układają okna. Okno nie wyjdzie za krawędź ekranu. Pozycje okien są zawsze zapamiętywane.</li>
@@ -198,7 +198,7 @@
           </ul>`) +
         sec('h-soon', 'Jeszcze niedostępne',
           `<ul>
-            <li><b>Depozyt</b> i <b>sortowanie</b> są w planach – pojawią się, gdy będą działać (nieaktywne przyciski zostały usunięte).</li>
+            <li><b>Łączenie stosów w depozycie</b> jest w przygotowaniu. Okno <b>🧰 Depozyt</b> ma na razie tylko narzędzia do zbadania depozytu: <b>Zbadaj depozyt</b> (co gra wie o przedmiotach depozytu) i <b>Nagrywaj</b> (jakie komendy gra wysyła i jak zmieniają się przedmioty, gdy przesuwasz je ręcznie). Nic nie wysyłają do serwera. Wynik skopiuj przyciskiem 📋 i wklej autorowi.</li>
             <li>Zasada projektu: skrypt nie usuwa, nie sprzedaje i nie wyrzuca przedmiotów.</li>
           </ul>`) +
         sec('h-unsure', 'Co nie zostało potwierdzone w grze',
@@ -211,6 +211,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.17.0</b> – okno 🧰 Depozyt z narzędziami do zbadania depozytu (Zbadaj, Nagrywaj, Kopiuj wynik) – przygotowanie do łączenia stosów w depozycie.</li>
             <li><b>0.16.1</b> – logo „M” Mindaw zamiast plecaka; szybsze sortowanie i łączenie: skrypt nie czeka już do 4 s na odpowiedź gry, tylko co 50 ms sprawdza, czy przedmiot się przeniósł; przerwa między krokami 200 ms; wynik sortowania pokazuje czas.</li>
             <li><b>0.16.0</b> – działające <b>sortowanie</b> otwartej torby (po nazwie, typie, jakości); kwadraty zaznaczania zamienione na przełączniki (gra psuła zwykłe pola wyboru); 👁 Obserwowane i 🧰 Depozyt (w przygotowaniu) w docku; logo plecaka zamiast ▣.</li>
             <li><b>0.15.0</b> – przedmiot upuszczony na okno dodatku wraca na swoje miejsce (bez pytania o wyrzucenie); okna nie wychodzą za prawą krawędź ekranu („Obok siebie” układa tylko otwarte okna); usunięte niedziałające i zbędne opcje: sortowanie i „Usuń zaznaczone” (nieaktywne), Depozyt w docku, sekcje „Pozycja i zachowanie” i „Inne”, rogi/cień, „Do prawej”; pozycje okien i stan docka zapamiętywane zawsze.</li>
@@ -226,6 +227,21 @@
         `</div>`,
     },
     { id: 'watch', icon: '👁', title: 'Obserwowane', w: 230, mini: true, html: '<div id="mbt-watchrows"></div><div class="wslot" data-wslot title="Przeciągnij przedmiot z torby w tę ramkę"><span>＋</span><small>przeciągnij tu przedmiot z torby</small></div><button class="b" data-wtarget="1" style="width:100%;margin-top:6px" title="Kliknij, a potem kliknij przedmiot w torbie">🎯 Wskaż w grze</button>' },
+    {
+      id: 'depo', icon: '🧰', title: 'Depozyt', w: 470,
+      html:
+        sec('depo', 'Łączenie w depozycie – w przygotowaniu',
+          `<div class="note">Żeby zrobić łączenie stosów w depozycie, potrzebuję danych z gry. Te przyciski <b>nie wysyłają żadnych komend</b> – tylko czytają i zapisują, co się dzieje.</div>
+           <ol class="steps">
+             <li>Otwórz depozyt w grze (strona 1) i kliknij <b>🔍 Zbadaj depozyt</b>.</li>
+             <li>Kliknij <b>⏺ Nagrywaj</b> i zrób ręcznie, na tanich przedmiotach: (a) przeciągnij stos na taki sam stos w depozycie, (b) przenieś przedmiot na wolne miejsce w depozycie, (c) przenieś przedmiot z depozytu do torby i z powrotem, (d) przełącz stronę depozytu na 2 i z powrotem na 1. Potem <b>⏹ Zatrzymaj</b>.</li>
+             <li>Kliknij <b>📋 Kopiuj wynik</b> i wklej mi go.</li>
+           </ol>
+           <div class="r"><button class="b" id="mbt-depostudy">🔍 Zbadaj depozyt</button><button class="b" id="mbt-deporec">⏺ Nagrywaj</button></div>
+           <div class="r"><button class="b" id="mbt-depocopy">📋 Kopiuj wynik</button></div>
+           <div class="note" id="mbt-deponote"></div>
+           <div class="out" id="mbt-depoout"></div>`),
+    },
   ];
   const WIN_IDS = WINS.map(w => w.id);
   // logo Mindaw: geometryczne „M” w sześciokątnej tarczy z kryształem (kolor akcentu)
@@ -333,8 +349,9 @@
   #mbt-root .launcher .logo{display:flex;align-items:center;padding:0 4px}
   #mbt-root .launcher .logo svg{width:30px;height:30px;display:block}
   #mbt-root .launcher .logo:hover svg{filter:drop-shadow(0 0 4px var(--ac))}
-  #mbt-root .di.soon{opacity:.6}
-  #mbt-root .di small{display:block;font-size:.7em;opacity:.8}
+  #mbt-root .steps{margin:8px 0 0 18px;padding:0;font-size:.93em;line-height:1.45;color:#cfd9d6}
+  #mbt-root .steps li{margin:5px 0}
+  #mbt-root .steps b{color:var(--ac)}
   #mbt-root .sw{display:flex;gap:8px;flex:1}
   #mbt-root .sw i{width:26px;height:26px;border-radius:8px;cursor:pointer;border:2px solid transparent}
   #mbt-root .sw i.on{border-color:#fff}
@@ -368,7 +385,6 @@
   <div class="dock" id="mbt-dock">
     <div class="dh">${gripHTML('dock')}<button class="ib" data-act="closeAll" title="Zamknij wszystko">×</button></div>
     ${WINS.filter(w => w.dock !== false).map(w => `<button class="di" data-win="${w.id}" title="${w.title}"><span class="ic">${w.icon}</span>${w.title}</button>`).join('')}
-    <button class="di soon" data-soon="Depozyt" title="W przygotowaniu"><span class="ic">🧰</span>Depozyt<small>wkrótce</small></button>
   </div>
 
   ${WINS.map(w => `
@@ -511,7 +527,6 @@
     if (t.closest('[data-wtarget]')) setPick(!pick);
     const so = t.closest('[data-sort]');
     if (so) sortBag(so.dataset.sort);
-    if (t.closest('[data-soon]')) toast('🧰 Depozyt – w przygotowaniu', YEL);
   });
   root.addEventListener('change', e => {
     const t = e.target;
@@ -1180,7 +1195,7 @@
       if (typeof orig !== 'function') return;
       if (orig.__mbt) { hooked = true; return; }
       const wrap = function (...a) {
-        try { if (typeof a[0] === 'string') { noteCmd(a[0]); dropCmd(a[0]); } } catch {}
+        try { if (typeof a[0] === 'string') { noteCmd(a[0]); dropCmd(a[0]); if (drec) recLine('komenda: ' + a[0].slice(0, 200)); } } catch {}
         return orig.apply(this, a);
       };
       wrap.__mbt = 1;
@@ -1227,6 +1242,93 @@
   }
   setInterval(bgTick, 2000);
 
+  /* ---------- depozyt: badanie (tylko odczyt i nagrywanie – żadnych komend do serwera) ---------- */
+  const LOCS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  const fetchLoc = loc => {
+    try { const l = window.Engine.items.fetchLocationItems(loc); return Array.isArray(l) ? l : Object.values(l || {}); } catch { return null; }
+  };
+  const shortIt = it => {
+    const keep = String(it.stat || '').split(';').filter(x => /^(amount|capacity|bag|rarity)=/.test(x)).join(';');
+    return `#${it.id} „${nameOf(it)}” loc=${it.loc} st=${it.st} x=${it.x} y=${it.y}${keep ? ' ' + keep : ''}`;
+  };
+  const depoTxt = { study: '', rec: '' };
+  const depoShow = () => {
+    const o = $('#mbt-depoout'), t = [depoTxt.study, depoTxt.rec].filter(Boolean).join('\n\n');
+    o.style.display = t ? 'block' : 'none'; o.textContent = t;
+  };
+  function depoStudy() {
+    const L = [`Badanie depozytu – Bag Tools ${VER}, ${new Date().toLocaleString('pl-PL')}`], counts = {}, locs = [];
+    LOCS.forEach(l => { const a = fetchLoc(l); if (a && a.length) { counts[l] = a.length; locs.push(l); } });
+    L.push('Przedmioty wg loc: ' + JSON.stringify(counts));
+    const vis = visibleIds(), seen = {};
+    locs.forEach(l => fetchLoc(l).forEach(it => { if (vis.has(String(it.id))) seen[l] = (seen[l] || 0) + 1; }));
+    L.push('Widoczne na ekranie wg loc: ' + JSON.stringify(seen));
+    locs.filter(l => l !== 'g').forEach(l => {
+      const a = fetchLoc(l), xs = {}, ys = {}, sts = {};
+      a.forEach(i => { xs[i.x] = (xs[i.x] || 0) + 1; ys[i.y] = (ys[i.y] || 0) + 1; sts[i.st] = (sts[i.st] || 0) + 1; });
+      L.push(`— loc ${l}: ${a.length} przedm. | pola obiektu: ${Object.keys(a[0] || {}).slice(0, 30).join(',')}`);
+      a.slice(0, 8).forEach(it => L.push('   ' + shortIt(it)));
+      L.push(`   x: ${JSON.stringify(xs)}\n   y: ${JSON.stringify(ys)}\n   st: ${JSON.stringify(sts)}`);
+      const by = {};
+      a.forEach(i => { const k = i.tpl + '|' + nameOf(i); (by[k] = by[k] || []).push(amountOf(i)); });
+      const d = Object.entries(by).filter(([, v]) => v.length > 1).slice(0, 6);
+      if (d.length) L.push('   powtórzone: ' + d.map(([k, v]) => k.split('|')[1] + ' [' + v.join(',') + ']').join(' ; '));
+    });
+    try {
+      const E = window.Engine;
+      L.push('Engine – klucze z „dep”: ' + (Object.keys(E || {}).filter(k => /dep/i.test(k)).map(k => {
+        const v = E[k]; return k + ':' + typeof v + (v && typeof v === 'object' ? '{' + Object.keys(v).slice(0, 40).join(',') + '}' : '');
+      }).join(' | ') || '-'));
+    } catch {}
+    const dws = [...document.querySelectorAll('[class*="depo" i]')].filter(n => !root.contains(n));
+    L.push('Elementy „depo” w oknie gry: ' + (dws.slice(0, 25).map(n => n.tagName + '.' + cls(n).slice(0, 80)).join(' ; ') || '-'));
+    const dw = dws.find(n => n.getBoundingClientRect().width > 200);
+    if (dw) {
+      L.push('Aktywne elementy w oknie depozytu: ' + ([...dw.querySelectorAll('*')].filter(n => ACT.test(cls(n))).slice(0, 15)
+        .map(n => n.tagName + '.' + cls(n).slice(0, 60) + (n.textContent.trim().length < 20 ? ' „' + n.textContent.trim() + '”' : '')).join(' ; ') || '-'));
+      L.push('HTML okna depozytu (początek): ' + dw.outerHTML.replace(/\s+/g, ' ').slice(0, 1500));
+    } else L.push('Nie widzę otwartego okna depozytu.');
+    depoTxt.study = L.join('\n'); depoShow();
+  }
+  // nagrywanie: komendy gry (z hookG) i zmiany położenia/ilości przedmiotów we wszystkich lokacjach co 0,4 s
+  let drec = null;
+  const itemMap = () => {
+    const m = {};
+    LOCS.forEach(l => (fetchLoc(l) || []).forEach(it => { m[it.id] = { l, n: nameOf(it), x: +it.x, y: +it.y, st: it.st, a: amountOf(it) }; }));
+    return m;
+  };
+  const where = o => `${o.l}(st=${o.st} x=${o.x} y=${o.y})×${o.a}`;
+  function recLine(s) {
+    if (!drec) return;
+    drec.log.push(`+${((Date.now() - drec.t0) / 1000).toFixed(1)}s ${s}`);
+    if (drec.log.length > 400) drec.log.shift();
+    depoTxt.rec = 'Nagranie:\n' + drec.log.join('\n'); depoShow();
+  }
+  function recTick() {
+    if (!drec) return;
+    const now = itemMap(), was = drec.last;
+    for (const id in now) {
+      const a = now[id], b = was[id];
+      if (!b) recLine(`nowy #${id} „${a.n}” ${where(a)}`);
+      else if (a.l !== b.l || a.x !== b.x || a.y !== b.y || a.st !== b.st || a.a !== b.a) recLine(`#${id} „${a.n}” ${where(b)} → ${where(a)}`);
+    }
+    for (const id in was) if (!now[id]) recLine(`zniknął #${id} „${was[id].n}” ${where(was[id])}`);
+    drec.last = now;
+  }
+  function depoRec() {
+    if (drec) { clearInterval(drec.iv); recTick(); recLine('stop'); drec = null; }
+    else { drec = { t0: Date.now(), log: [], last: itemMap(), iv: setInterval(recTick, 400) }; hookG(); recLine('start'); }
+    $('#mbt-deporec').textContent = drec ? '⏹ Zatrzymaj' : '⏺ Nagrywaj';
+    $('#mbt-deporec').classList.toggle('on', !!drec);
+  }
+  async function depoCopy() {
+    const t = $('#mbt-depoout').textContent;
+    if (!t) return void ($('#mbt-deponote').textContent = 'Najpierw zbadaj depozyt lub nagraj akcje.');
+    let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; } catch {}
+    $('#mbt-deponote').textContent = ok ? 'Skopiowano – wklej mi to w rozmowie.' : 'Zaznacz tekst poniżej i skopiuj ręcznie (Ctrl+C).';
+  }
+
   /* ---------- diagnostyka ---------- */
   function diag() {
     const { items, L } = snap(), d = detectBag(items, L);
@@ -1266,6 +1368,9 @@
   $('#mbt-wfind').onclick = wFind;
   $('#mbt-dups').onclick = dups;
   $('#mbt-diag').onclick = diag;
+  $('#mbt-depostudy').onclick = depoStudy;
+  $('#mbt-deporec').onclick = depoRec;
+  $('#mbt-depocopy').onclick = depoCopy;
   $('#mbt-merge').onclick = merge;
   $('#mbt-lootclear').onclick = () => {
     if (!confirm('Wyczyścić dziennik zdobyczy?')) return;
