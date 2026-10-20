@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.17.0** (20.10.2026).
+Aktualna wersja: **0.18.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -26,7 +26,7 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
    🧰 Depozyt w docku (po kliknięciu napis „w przygotowaniu”), bo będzie robiony.
 2. **Każda zmiana w skrypcie = aktualizacja okna „Funkcje”** (okno `help` w tablicy `WINS`):
    - popraw lub dopisz opis w odpowiedniej sekcji (`h-start`, `h-merge`, `h-search`, `h-watch`, `h-loot`,
-     `h-sort`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
+     `h-sort`, `h-depo`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
    - dopisz wpis na górze sekcji **Historia zmian** (`h-log`),
    - podbij wersję w **dwóch** miejscach: `// @version` w nagłówku i `const VER`.
 3. **Informacje o grze sprawdzaj pod kątem aktualności** – gra często się zmienia, stare wpisy z forum bywają
@@ -89,6 +89,12 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 - Stosy mają `amount=` i limit `capacity=` (np. `capacity=10`).
 - `item.$` jest odłączonym elementem (nie leży w oknie gry); w DOM są węzły `.item.item-id-<id>` oraz `.bags-navigation`.
 
+- **Depozyt (wynik „Zbadaj” + nagranie użytkownika, 20.10.2026):** przedmioty w `fetchLocationItems('d')`, `st=0`,
+  strona ma 14 kolumn (x 0–13); okno gry `.depo`, zakładki `.card` (aktywna `.card.active`), licznik
+  `.available-slots-current`. Komendy: `depo&move=ID&x&y` (w depozycie), `depo&get=ID&x&y` (depozyt → torba, x/y torby),
+  `depo&put=ID&x&y` (torba → depozyt); id przedmiotu się nie zmienia. **W depozycie stosów nie da się łączyć**
+  (`depo&move` na stos nic nie robi). Branie/odkładanie darmowe, bez limitu (użytkownik). Konto testowe ma 1 stronę.
+
 ## Niepotwierdzone (wymaga testu w grze)
 
 - Komenda łączenia `moveitem&st=0…` i częściowe łączenie (gdy cały stos się nie mieści).
@@ -98,7 +104,13 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   10.2026, także po 0.14.0). W 0.15.0 puszczenie jest przekierowane na miejsce startu (`release()`) – działa na stronie
   testowej, w grze niepotwierdzone. Sprawdzić linijkę „Ostatnie upuszczenie” w Diagnostyce.
 
-## Następny etap: depozyt (tylko łączenie stosów na OTWARTEJ stronie)
+## Depozyt: łączenie (0.18.0) i dalsze plany
+
+`depoMerge()`: grupy = niepełne identyczne stosy z limitem, **widoczne na ekranie** (`visibleIds()`), ≥ 2 sztuki.
+Dla każdej grupy: `depo&get` na wolne pola torby → `stackSteps()` + `moveitem` w torbie → `depo&put` na pierwotne
+pola (także po błędzie). Sprawdzenie po każdym kroku (`waitFor`, 50 ms, do 3 s), przerwa 200 ms, przerwanie przy
+pierwszym błędzie, zatrzymanie kolejnym kliknięciem między grupami. Niepotwierdzone w grze: całość (test na stronie
+testowej); numeracja pól przy wielu stronach. Dalej: sortowanie depozytu (prośba użytkownika).
 
 Ustalone (źródła z 2025, sprawdzone 10.2026): do 16 zakładek; po otwarciu depozytu gra ładuje zakładki 1–8,
 a 9–16 dopiero po kliknięciu którejś z nich; wbudowana wyszukiwarka widzi tylko załadowane zakładki.
