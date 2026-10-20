@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.14.0
+// @version      0.15.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.14.0';
+  const VER = '0.15.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -28,9 +28,7 @@
     granat: { n: 'Granat', bg: '10,16,34', ctl: '#14203f', inp: '#0d1630', bd: '#2c3c6e' },
   };
   const def = {
-    sv: 2, alpha: 70, scale: 80, accent: 0, theme: 'ciemny', compact: false, font: 14, round: true, shadow: true,
-    remember: true, onTop: false, minIcon: true, openStart: false,
-    notify: true, sound: false, counter: true, hideAfter: false,
+    sv: 2, alpha: 70, scale: 80, accent: 0, theme: 'ciemny', compact: false, font: 14, dock: false,
     showCount: true, verified: false, lootToast: true, lootLoose: false,
     watch: [], watchShow: true, watchCrit: 50, watchRemind: 0,
     pos: { dock: [20, 100], torba: [162, 100], set: [733, 100], loot: [300, 140], help: [350, 120], watch: [20, 470] },
@@ -47,8 +45,10 @@
   if (!Array.isArray(S.rar)) S.rar = [];
   S.watch = (Array.isArray(S.watch) ? S.watch : []).filter(w => w && typeof w.name === 'string');
   if (!THEMES[S.theme]) S.theme = 'ciemny';
+  // opcje usunięte w 0.15.0 (pozycja jest zawsze zapamiętywana, dock wraca w stanie sprzed odświeżenia)
+  ['round', 'shadow', 'remember', 'onTop', 'minIcon', 'openStart', 'notify', 'sound', 'counter', 'hideAfter'].forEach(k => { delete S[k]; });
   const save = () => {
-    try { localStorage.setItem(KEY, JSON.stringify(S.remember ? S : { ...S, pos: def.pos })); } catch {}
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
   };
 
   /* ---------- definicje okien (każde nowe okno dostaje kropki do przesuwania) ---------- */
@@ -79,13 +79,9 @@
            <div class="r"><span>Czerwony alert, gdy ilość spadnie do (% progu)</span><input class="s n" type="number" id="mbt-wcrit" min="1" max="99"></div>
            <div class="r"><span>Przypominaj co (s), 0 = nie</span><input class="s n" type="number" id="mbt-wremind" min="0" max="3600"></div>
            <div class="r"><button class="b" data-wtest="1" title="Pokazuje przykładowe napisy na środku ekranu">Pokaż test napisów</button></div>`) +
-        sec('sort', 'Sortowanie',
-          `<select id="mbt-sortmode" disabled title="Wkrótce"><option>Sortuj automatycznie</option><option>Po nazwie</option><option>Po typie</option><option>Po jakości</option></select>
-           <div class="r"><button class="b" disabled title="Wkrótce">A↓Z Po nazwie</button><button class="b" disabled title="Wkrótce">Po typie</button><button class="b" disabled title="Wkrótce">★ Po jakości</button></div>`) +
         sec('extra', 'Dodatkowe funkcje',
           `<div class="r"><button class="b" id="mbt-dups" title="Pokazuje powtarzające się przedmioty w otwartej torbie">⧉ Pokaż duplikaty</button>
-             <button class="b" id="mbt-diag" title="Informacje techniczne do zgłaszania problemów">🔍 Diagnostyka</button></div>
-           <div class="r"><button class="b" disabled title="Wkrótce">🗑 Usuń zaznaczone (Soon)</button></div>`) +
+             <button class="b" id="mbt-diag" title="Informacje techniczne do zgłaszania problemów">🔍 Diagnostyka</button></div>`) +
         `<div class="out" id="mbt-out"></div>`,
     },
     {
@@ -109,23 +105,15 @@
            <div class="r"><span style="flex:none">Rozmiar czcionki</span><input type="range" id="mbt-font" min="11" max="18"><b id="mbt-font-l" style="flex:none;width:45px"></b></div>
            <div class="r"><span style="flex:none">Kolor akcentów</span><div class="sw" id="mbt-sw"></div></div>
            <div class="r"><span style="flex:none">Motyw</span>${Object.entries(THEMES).map(([k, v]) => `<button class="b" data-theme="${k}">${v.n}</button>`).join('')}</div>
-           <div class="r">${chk('round', 'Zaokrąglone rogi')}${chk('shadow', 'Cień okna')}</div>
            ${chk('compact', 'Tryb kompaktowy (mniejsze odstępy)')}
            <div class="r"><span style="flex:none">Układ okien</span></div>
            <div class="r"><button class="b" data-layout="reset" title="Przywraca domyślne pozycje">Reset</button>
-             <button class="b" data-layout="row" title="Okna jedno obok drugiego, od docka">Obok siebie</button>
-             <button class="b" data-layout="right" title="Okna przy prawej krawędzi ekranu">Do prawej</button></div>`) +
-        sec('behav', 'Pozycja i zachowanie',
-          chk('remember', 'Zapamiętaj pozycję okna') + chk('onTop', 'Zawsze na wierzchu') +
-          chk('minIcon', 'Minimalizuj do ikonki') + chk('openStart', 'Otwórz przy starcie gry')) +
+             <button class="b" data-layout="row" title="Okna jedno obok drugiego, od docka">Obok siebie</button></div>`) +
         sec('keys', 'Skróty klawiszowe',
           `<div id="mbt-keys"></div>
            <div class="note">Kliknij skrót i naciśnij 1, 2 lub 3 klawisze naraz. Esc – anuluj. Skrótów przeglądarki (np. Ctrl+W) nie da się przejąć.</div>
            <div class="note" id="mbt-keynote"></div>
            <div class="r"><button class="b" id="mbt-keysreset">Przywróć domyślne skróty</button></div>`) +
-        sec('other', 'Inne',
-          chk('notify', 'Pokaż powiadomienia o ukończeniu akcji') + chk('sound', 'Odtwarzaj dźwięk po zakończeniu') +
-          chk('counter', 'Pokaż licznik połączonych przedmiotów') + chk('hideAfter', 'Ukryj okno po wykonaniu akcji')) +
         sec('backup', 'Kopia ustawień',
           `<div class="r"><button class="b" id="mbt-exp" title="Kopiuje ustawienia jako tekst">Eksportuj do schowka</button><button class="b" id="mbt-imp" title="Wczytuje ustawienia z pola poniżej">Importuj z pola</button></div>
            <textarea class="s" id="mbt-io" rows="4" placeholder="Tu pojawi się wyeksportowany tekst. Do importu wklej tu kopię."></textarea>
@@ -136,11 +124,11 @@
       html: `<div class="help">` +
         sec('h-start', 'Podstawy obsługi',
           `<ul>
-            <li><b>Dock</b> (pionowy pasek z ikonami) otwiera okna: Torba, Zdobycze, Ustawienia i Funkcje. Depozyt jest jeszcze nieaktywny.</li>
+            <li><b>Dock</b> (pionowy pasek z ikonami) otwiera okna: Torba, Zdobycze, Ustawienia i Funkcje.</li>
             <li><b>Kropki</b> w rogu okna (siatka 3×3) służą do przesuwania – tylko one. Każde okno przesuwasz osobno, a dock i ikonę ▣ też.</li>
             <li><b>–</b> zwija okno do paska tytułu, <b>×</b> zamyka. Kliknięcie w nagłówek sekcji zwija ją (stan jest zapamiętywany).</li>
-            <li>Kliknięte okno wychodzi na wierzch. Przyciski „Reset / Obok siebie / Do prawej” w Ustawieniach szybko układają okna.</li>
-            <li>Po zamknięciu docka zostaje mała ikona ▣ – kliknij ją, żeby wrócić.</li>
+            <li>Kliknięte okno wychodzi na wierzch. Przyciski „Reset” i „Obok siebie” (układa otwarte okna, a gdy brakuje miejsca – kaskadą) w Ustawieniach szybko układają okna. Okno nie wyjdzie za krawędź ekranu. Pozycje okien są zawsze zapamiętywane.</li>
+            <li>Po zamknięciu docka zostaje mała ikona ▣ – kliknij ją, żeby wrócić. Po odświeżeniu gry dock jest otwarty albo zamknięty tak, jak go zostawiłeś.</li>
             <li>Numer wersji widać przy tytule okna Torba. Nowa wersja skryptu sama zastępuje starą (stare okno jest usuwane); ustawienia zostają.</li>
             <li><b>Ładowanie z GitHuba:</b> w Tampermonkey jest tylko mały skrypt-ładowacz, który przy każdym wejściu do gry wczytuje najnowszą wersję z GitHub Pages (majndaw.github.io/margonem-mindaw-addons). Zmiana w repozytorium działa po odświeżeniu gry, zwykle po kilku minutach od zapisania.</li>
           </ul>`) +
@@ -162,7 +150,7 @@
         sec('h-watch', 'Obserwowane przedmioty',
           `<ul>
             <li>Dodajesz przedmiot na 3 sposoby: wpisując nazwę (Szukaj → klik w wynik), przyciskiem <b>🎯 Wskaż w grze</b> (klikasz przedmiot w torbie – nie zostanie użyty) albo <b>przeciągając</b> go z torby na ramkę w małym okienku „Obserwowane”. Dodać można tylko przedmioty z torby (nie założone).</li>
-            <li>Gra może przy przeciąganiu zapytać, czy wyrzucić lub zniszczyć przedmiot – wtedy <b>anuluj</b> to okienko. Najbezpieczniej dodawać przyciskiem 🎯 Wskaż w grze.</li>
+            <li>Przedmiot upuszczony na <b>dowolne okno dodatku</b> wraca na swoje miejsce w torbie (gra dostaje „puszczenie” w miejscu, skąd go wzięto) – nie powinno się już pojawiać pytanie o wyrzucenie lub zniszczenie. Gdyby jednak się pojawiło, <b>anuluj</b> je i wklej wynik Diagnostyki.</li>
             <li><b>✕</b> przy przedmiocie w małym okienku (albo w oknie Torba) przestaje go obserwować – przedmiot w torbie zostaje nietknięty.</li>
             <li>Małe okienko pokazuje grafikę przedmiotu, jego nazwę i <b>łączną ilość ze wszystkich toreb</b> (suma sztuk, nie liczba stosów).</li>
             <li>Dla każdego przedmiotu ustawiasz <b>próg</b> (domyślnie 50). Gdy ilość spadnie poniżej progu, na środku ekranu pojawia się <b style="color:#ffd400">żółty napis</b>. Gdy spadnie do wybranego procentu progu (domyślnie 50%), napis jest <b style="color:#ff3b30">czerwony</b>.</li>
@@ -184,11 +172,9 @@
           </ul>`) +
         sec('h-look', 'Wygląd i ustawienia',
           `<ul>
-            <li><b>Skala interfejsu</b> 40–130% (domyślnie 80%), <b>rozmiar czcionki</b>, <b>przezroczystość</b>, 7 kolorów akcentu, 4 motywy tła, tryb kompaktowy, zaokrąglone rogi i cień.</li>
+            <li><b>Skala interfejsu</b> 40–130% (domyślnie 80%), <b>rozmiar czcionki</b>, <b>przezroczystość</b>, 7 kolorów akcentu, 4 motywy tła i tryb kompaktowy.</li>
             <li>Skala i rozmiar czcionki zmieniają się <b>po puszczeniu suwaka</b> (w trakcie widać tylko liczbę) – dzięki temu suwak nie ucieka spod kursora.</li>
             <li>Wysokość okna dopasowuje się do miejsca na ekranie – gdy treść się nie mieści, przewiń ją kółkiem myszy.</li>
-            <li>Zapamiętywanie pozycji okien, „zawsze na wierzchu”, minimalizacja do ikonki, otwieranie przy starcie gry.</li>
-            <li>Powiadomienia, dźwięk po zakończeniu łączenia i ukrywanie okna po akcji można włączyć w sekcji „Inne”.</li>
           </ul>`) +
         sec('h-backup', 'Kopia ustawień',
           `<ul>
@@ -202,18 +188,19 @@
           </ul>`) +
         sec('h-soon', 'Jeszcze niedostępne',
           `<ul>
-            <li><b>Depozyt</b>, <b>sortowanie</b> (po nazwie, typie, jakości) oraz <b>Usuń zaznaczone</b> są nieaktywne („Soon”).</li>
+            <li><b>Depozyt</b> i <b>sortowanie</b> są w planach – pojawią się, gdy będą działać (nieaktywne przyciski zostały usunięte).</li>
             <li>Zasada projektu: skrypt nie usuwa, nie sprzedaje i nie wyrzuca przedmiotów.</li>
           </ul>`) +
         sec('h-unsure', 'Co nie zostało potwierdzone w grze',
           `<ul>
             <li>Wykrywanie otwartej torby, częściowe łączenie stosów (gdy cały stos się nie mieści) i nazwy rzadkości w grze.</li>
             <li>Przeciąganie przedmiotu na ramkę, pobieranie grafiki przedmiotu oraz rozpoznawanie źródła dropów (okno łupu, skrzynki).</li>
-            <li>Dlaczego gra pyta o wyrzucenie/zniszczenie po upuszczeniu przedmiotu na okno dodatku i czy da się to bezpiecznie wyłączyć – potrzebny wynik Diagnostyki zaraz po takim upuszczeniu.</li>
+            <li>Czy gra po upuszczeniu przedmiotu na okno dodatku na pewno odkłada go na miejsce (bez pytania o wyrzucenie) – sprawdzone tylko na stronie testowej.</li>
             <li>Jeśli któraś z tych rzeczy nie działa, użyj Diagnostyki i opisz, co się dzieje.</li>
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.15.0</b> – przedmiot upuszczony na okno dodatku wraca na swoje miejsce (bez pytania o wyrzucenie); okna nie wychodzą za prawą krawędź ekranu („Obok siebie” układa tylko otwarte okna); usunięte niedziałające i zbędne opcje: sortowanie i „Usuń zaznaczone” (nieaktywne), Depozyt w docku, sekcje „Pozycja i zachowanie” i „Inne”, rogi/cień, „Do prawej”; pozycje okien i stan docka zapamiętywane zawsze.</li>
             <li><b>0.14.0</b> – poprawki: suwaki skali i czcionki już nie skaczą, dolne opcje okien zawsze da się przewinąć i kliknąć, wyłączenie „Zawsze na wierzchu” działa; przeciąganie na ramkę dodaje właściwy przedmiot (wcześniej zawsze ten sam z ekwipunku); ✕ w małym okienku obserwowanych; Diagnostyka zapisuje reakcję gry na upuszczenie przedmiotu na okno.</li>
             <li><b>0.13.2</b> – wczytywanie przez skrypt-ładowacz z GitHub Pages (repozytorium majndaw/margonem-mindaw-addons).</li>
             <li><b>0.13.1</b> – okno Funkcje uzupełnione (pamięć wyniku szukania, liczba sztuk, zastępowanie starej wersji) i dodana Historia zmian.</li>
@@ -319,7 +306,6 @@
   #mbt-root .di{background:none;border:1px solid transparent;border-radius:10px;color:#cfd9d6;padding:8px 4px;cursor:pointer;font:inherit}
   #mbt-root .di.on{border-color:var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,transparent)}
   #mbt-root .di .ic{font-size:2.4em;display:block;line-height:1.2}
-  #mbt-root .di.off{opacity:.5;text-decoration:line-through;cursor:not-allowed}
   #mbt-root .launcher{position:fixed;z-index:2147483100;height:50px;padding:0 6px 0 2px;color:var(--ac);display:none;align-items:center;gap:2px;
     background:rgba(9,15,16,.94);border:1px solid var(--ac);border-radius:13px}
   #mbt-root .launcher.show{display:flex}
@@ -357,7 +343,6 @@
   <div class="dock" id="mbt-dock">
     <div class="dh">${gripHTML('dock')}<button class="ib" data-act="closeAll" title="Zamknij wszystko">×</button></div>
     ${WINS.filter(w => w.dock !== false).map(w => `<button class="di" data-win="${w.id}" title="${w.title}"><span class="ic">${w.icon}</span>${w.title}</button>`).join('')}
-    <button class="di off" title="Wkrótce"><span class="ic">🧰</span>Depozyt</button>
   </div>
 
   ${WINS.map(w => `
@@ -373,7 +358,7 @@
   const el = { dock: $('#mbt-dock'), icon: $('#mbt-launcher') };
   WIN_IDS.forEach(id => { el[id] = $('#mbt-w-' + id); });
   const out = $('#mbt-out');
-  let dockOpen = S.openStart;
+  let dockOpen = !!S.dock;
   let busy = false;
   let Z = 2147480000;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -381,10 +366,12 @@
   /* ---------- wygląd i pozycje ---------- */
   $('#mbt-sw').innerHTML = COLORS.map((c, i) => `<i data-c="${i}" style="background:${c}"></i>`).join('');
 
+  const winW = id => (id === 'dock' ? 122 : WINS.find(w => w.id === id).w) * S.scale / 100;
   function place() {
+    // całe okno w poziomie zawsze na ekranie (inaczej przyciski wypadały za prawą krawędź)
     for (const id of ['dock', ...WIN_IDS]) {
       const p = S.pos[id] || def.pos[id];
-      el[id].style.left = clamp(p[0], 0, Math.max(0, innerWidth - 80)) + 'px';
+      el[id].style.left = clamp(p[0], 0, Math.max(0, innerWidth - winW(id))) + 'px';
       el[id].style.top = clamp(p[1], 0, Math.max(0, innerHeight - 50)) + 'px';
     }
     el.icon.style.left = el.dock.style.left; el.icon.style.top = el.dock.style.top;
@@ -401,11 +388,11 @@
     root.style.setProperty('--ac', COLORS[S.accent]);
     root.style.setProperty('--a', S.alpha / 100);
     root.style.setProperty('--sc', S.scale / 100);
-    root.style.setProperty('--r', S.round ? '14px' : '3px');
+    root.style.setProperty('--r', '14px');
     root.style.setProperty('--fs', S.font + 'px');
     root.style.setProperty('--bg', th.bg); root.style.setProperty('--ctl', th.ctl);
     root.style.setProperty('--inp', th.inp); root.style.setProperty('--bd', th.bd);
-    root.classList.toggle('shadow', S.shadow);
+    root.classList.add('shadow');
     root.classList.toggle('compact', S.compact);
     $('#mbt-alpha').value = S.alpha; $('#mbt-alpha-l').textContent = S.alpha + '%';
     $('#mbt-scale').value = S.scale; $('#mbt-scale-l').textContent = S.scale + '%';
@@ -416,10 +403,6 @@
     $('#mbt-showcount').checked = S.showCount;
     $('#mbt-wshow').checked = S.watchShow;
     $('#mbt-wcrit').value = S.watchCrit; $('#mbt-wremind').value = S.watchRemind;
-    WIN_IDS.forEach(id => {
-      if (S.onTop) el[id].style.zIndex = 2147483000;
-      else if (+el[id].style.zIndex >= 2147483000) el[id].style.zIndex = '';
-    });
     applyFold(); place();
   }
   function view() {
@@ -429,7 +412,8 @@
       el[id].classList.toggle('min', !!S.min[id]);
     });
     el.dock.classList.toggle('show', dockOpen);
-    el.icon.classList.toggle('show', !dockOpen && S.minIcon);
+    el.icon.classList.toggle('show', !dockOpen);
+    S.dock = dockOpen;
     $$('[data-win]').forEach(b => b.classList.toggle('on', !!S.open[b.dataset.win]));
     $('#mbt-wshow').checked = S.watchShow;
     place();
@@ -440,11 +424,13 @@
     const sc = S.scale / 100, [dx, dy] = S.pos.dock, list = WINS.filter(w => w.dock !== false);
     if (kind === 'reset') S.pos = JSON.parse(JSON.stringify(def.pos));
     else if (kind === 'row') {
-      let x = dx + 142 * sc;
-      list.forEach(w => { S.pos[w.id] = [x, dy]; x += w.w * sc + 16; });
-    } else if (kind === 'right') {
-      let x = innerWidth - 20;
-      [...list].reverse().forEach(w => { x -= w.w * sc; S.pos[w.id] = [Math.max(0, x), dy]; x -= 16; });
+      // tylko otwarte okna; gdy brakuje miejsca, kolejne idą od początku, przesunięte w dół (kaskada)
+      const x0 = dx + 142 * sc;
+      let x = x0, y = dy;
+      list.filter(w => S.open[w.id]).forEach(w => {
+        if (x > x0 && x + w.w * sc > innerWidth - 8) { x = x0 + (y - dy + 40) / 2; y += 40; }
+        S.pos[w.id] = [x, y]; x += w.w * sc + 16;
+      });
     }
     place(); save();
   }
@@ -515,7 +501,7 @@
   // kliknięte okno wychodzi na wierzch
   root.addEventListener('pointerdown', e => {
     const w = e.target.closest('.win');
-    if (!w || S.onTop) return;
+    if (!w) return;
     if (Z > 2147482900) { Z = 2147480000; $$('.win').forEach(x => { x.style.zIndex = Z; }); }
     w.style.zIndex = ++Z;
   });
@@ -533,7 +519,7 @@
   root.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.pid) return;
     S.pos[drag.id] = [
-      clamp(drag.l + e.clientX - drag.x, 0, Math.max(0, innerWidth - 80)),
+      clamp(drag.l + e.clientX - drag.x, 0, Math.max(0, innerWidth - winW(drag.id))),
       clamp(drag.t + e.clientY - drag.y, 0, Math.max(0, innerHeight - 50)),
     ];
     place();
@@ -654,18 +640,9 @@
   setInterval(() => { if (S.open.torba && !busy) { const sn = snap(); updateNote(sn); renderRar(sn); } }, 1000);
 
   const say = t => { out.style.display = 'block'; out.textContent = t; };
-  const notify = t => { if (S.notify && typeof window.message === 'function') { try { window.message(t); } catch {} } };
   const join = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' i ' + a[a.length - 1];
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const norm = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  function beep() {
-    if (!S.sound) return;
-    try {
-      const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
-      o.frequency.value = 880; g.gain.value = 0.05; o.connect(g); g.connect(c.destination); o.start();
-      setTimeout(() => { o.stop(); c.close(); }, 140);
-    } catch {}
-  }
   // napis na środku ekranu
   const YEL = '#ffd400', RED = '#ff3b30', OK = '#7dffb2';
   function toast(text, color) {
@@ -726,7 +703,6 @@
     const text = `Znaleziono ${names.length} poz.` + (S.showCount ? `, razem ${total} szt.` : '') + '\n' + lines.join('\n');
     say(text);
     S.last = text.slice(0, 2000); save();
-    notify(`Znaleziono: ${names.length}`);
   }
 
   function dups() {
@@ -814,10 +790,7 @@
       return `• ${g.name}: ${g.before.join(', ')} → ${after.join(', ')}`;
     });
     say(`Torba ${d0.k + 1}: wykonano ${done} z ${plan.length} kroków\n` + lines.join('\n') + (log.length ? '\n\n' + log.join('\n') : ''));
-    if (S.counter) notify(`Połączono: ${done}`);
-    beep();
     updateNote();
-    if (S.hideAfter && done) { S.open.torba = false; view(); }
   }
 
   /* ---------- obserwowane przedmioty ---------- */
@@ -895,6 +868,7 @@
   // (tylko obserwacja – zdarzenia trafiają do gry bez zmian); ruch o ponad 6 px = przeciąganie
   const at = (e, sel) => document.elementsFromPoint(e.clientX, e.clientY).some(n => n.closest && n.closest(sel));
   document.addEventListener('mousedown', e => {
+    if (replay) return;
     press = null;
     if (e.button !== 0 || pick) return;
     const n = e.target && e.target.closest && e.target.closest('.item[class*="item-id-"]');
@@ -902,17 +876,40 @@
     if (m) press = { id: m[1], el: n, x: e.clientX, y: e.clientY, drag: false };
   }, true);
   document.addEventListener('mousemove', e => {
-    if (!press) return;
+    if (!press || replay) return;
     if (!press.drag && Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) > 6) press.drag = true;
     if (press.drag) { const hot = at(e, '[data-wslot]'); $$('.wslot').forEach(s => s.classList.toggle('hot', hot)); }
   }, true);
-  document.addEventListener('mouseup', e => {
-    const p = press; press = null;
+  // puszczenie przedmiotu nad oknem dodatku: gra nie dostaje tego puszczenia, tylko puszczenie w miejscu, skąd przedmiot
+  // wzięto – przedmiot wraca na swoje miejsce zamiast trafić „na ziemię” (pytanie o wyrzucenie/zniszczenie)
+  let replay = false;
+  const fire = (type, x, y) => {
+    const C = type.startsWith('pointer') && window.PointerEvent ? PointerEvent : MouseEvent;
+    (document.elementFromPoint(x, y) || document.body).dispatchEvent(new C(type, {
+      bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, screenX: x, screenY: y,
+      button: 0, buttons: type.endsWith('up') ? 0 : 1, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+    }));
+  };
+  const release = e => {
+    if (replay || e.button !== 0) return;
+    const p = press;
+    if (!p || !p.drag) { if (e.type === 'mouseup') press = null; return; }
     $$('.wslot').forEach(s => s.classList.remove('hot'));
-    if (!p || !p.drag) return;
-    if (at(e, '#mbt-root .win')) noteDrop(p);
+    const onUs = p.done || at(e, '#mbt-root .win,#mbt-root .dock,#mbt-root .launcher');
+    if (e.type === 'mouseup') press = null;
+    if (!onUs) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (p.done) return;                                     // pointerup już obsłużony, to jego mouseup
+    p.done = true;
+    noteDrop(p);
     if (at(e, '[data-wslot]')) addFromItem(p.id, p.el);
-  }, true);
+    replay = true;
+    try { ['pointermove', 'mousemove', 'pointerup', 'mouseup'].forEach(t => fire(t, p.x, p.y)); } catch {}
+    replay = false;
+    setTimeout(() => { if (press === p) press = null; }, 1000);
+  };
+  window.addEventListener('pointerup', release, true);
+  window.addEventListener('mouseup', release, true);
   // co gra robi po upuszczeniu przedmiotu na okno dodatku (do Diagnostyki: komendy i nowe okienka przez 3 s)
   let drop = null, dropObs = null;
   function noteDrop(p) {
@@ -1198,7 +1195,7 @@
     S.alpha = num(o.alpha, 35, 100, S.alpha); S.scale = num(o.scale, 40, 130, S.scale); S.font = num(o.font, 11, 18, S.font);
     S.accent = Math.floor(num(o.accent, 0, COLORS.length - 1, S.accent));
     if (THEMES[o.theme]) S.theme = o.theme;
-    ['compact', 'round', 'shadow', 'remember', 'onTop', 'minIcon', 'openStart', 'notify', 'sound', 'counter', 'hideAfter', 'showCount', 'lootToast', 'lootLoose', 'watchShow']
+    ['compact', 'showCount', 'lootToast', 'lootLoose', 'watchShow']
       .forEach(k => { if (typeof o[k] === 'boolean') S[k] = o[k]; });
     S.watchCrit = Math.floor(num(o.watchCrit, 1, 99, S.watchCrit)); S.watchRemind = Math.floor(num(o.watchRemind, 0, 3600, S.watchRemind));
     if (o.pos && typeof o.pos === 'object') {
