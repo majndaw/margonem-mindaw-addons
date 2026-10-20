@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.19.0** (20.10.2026).
+Aktualna wersja: **0.20.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -26,7 +26,7 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
    🧰 Depozyt w docku (po kliknięciu napis „w przygotowaniu”), bo będzie robiony.
 2. **Każda zmiana w skrypcie = aktualizacja okna „Funkcje”** (okno `help` w tablicy `WINS`):
    - popraw lub dopisz opis w odpowiedniej sekcji (`h-start`, `h-merge`, `h-search`, `h-watch`, `h-loot`,
-     `h-sort`, `h-depo`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
+     `h-sort`, `h-depo`, `h-others`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
    - dopisz wpis na górze sekcji **Historia zmian** (`h-log`),
    - podbij wersję w **dwóch** miejscach: `// @version` w nagłówku i `const VER`.
 3. **Informacje o grze sprawdzaj pod kątem aktualności** – gra często się zmienia, stare wpisy z forum bywają
@@ -75,6 +75,10 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   i czcionki zapisują wartość na `change` (po puszczeniu) – na `input` okno zmieniało rozmiar pod kursorem i suwak skakał.
 - **Zdobycze:** `lootTick()`, `addLoot()`, `renderLoot()`; źródło dropu z sygnałów `sigTick()` (okna) i `noteCmd()`
   (obserwacja `_g` przez `hookG()`); tryb ścisły / luźny (`lootLoose`). Liczy heroiki, legendy, smocze runy.
+- **Ukrywanie graczy (0.20.0):** przycisk 👥 Gracze w docku (`data-act="others"`, `S.hideOthers`). `hookOthers()`
+  owija `Engine.communication.parseJSON` i czyści pole `other` (wg skryptu użytkownika „usuwacz innych”, 10.2026).
+  Flaga `window.__mbtHideOthers` – nowa wersja skryptu steruje nakładką starszej. Tylko wygląd, bez komend.
+  Niepotwierdzone: czy gracze już widoczni znikają od razu (zakładamy: po zmianie mapy / odświeżeniu).
 - **`diag()`:** Diagnostyka – pierwsza rzecz do poproszenia, gdy coś nie działa.
 - **Kopia ustawień:** eksport/import JSON (`importSettings()` waliduje dane).
 - **Skróty:** tablica `ACTIONS` (toggle, merge, find); nagrywanie 1–3 klawiszy; nowe akcje dopisuj do `ACTIONS`.
@@ -112,7 +116,7 @@ pola (także po błędzie). Sprawdzenie po każdym kroku (`waitFor`, 50 ms, do 3
 pierwszym błędzie, zatrzymanie kolejnym kliknięciem między grupami. Niepotwierdzone w grze: całość (test na stronie
 testowej); numeracja pól przy wielu stronach. **Potwierdzone w grze przez użytkownika (20.10.2026): „działa od razu”.**
 
-`sortDepo()` (0.19.0): `depoPage()` bierze przedmioty widoczne na ekranie, wyznacza prostokąt strony 14×8
+`sortDepo()` (0.19.0; od 0.20.0 tylko „po jakości” – prośba użytkownika): `depoPage()` bierze przedmioty widoczne na ekranie, wyznacza prostokąt strony 14×8
 (`DCOLS`, `DROWS`; 8 rzędów wynika z licznika 89 wolnych + 23 przedmioty = 112) i odmawia, gdy przedmioty się w nim
 nie mieszczą albo leży w nim coś niewidocznego. Plan: `sortPlan()` z `b.cols`/`b.x0`; wykonanie: wspólne `runSort()`
 (torba: `moveitem`, depozyt: `depo&move=ID&x&y` na wolne pole – potwierdzone nagraniem).
