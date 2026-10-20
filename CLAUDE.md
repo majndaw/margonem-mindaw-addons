@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja w chwili tworzenia tego pliku: **0.13.2** (20.10.2026).
+Aktualna wersja: **0.14.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -47,6 +47,12 @@ Zmiana zatwierdzona na `main` działa po odświeżeniu gry. Plik musi pozostać 
   i `merge()` (komenda `moveitem&st=0&id=…&x=…&y=…`, kontrola `waitGrow()` po każdym kroku).
 - **Obserwowane:** `watchTick()`, progi `warn` i `watchCrit`, napisy `toast()`, dodawanie: nazwa, `addFromItem()`
   (przeciągnięcie na `.wslot` lub tryb „Wskaż w grze” `setPick()`), ikony `iconSrc()` / `paintIcons()`.
+  Przeciąganie: `press` = przedmiot wciśnięty myszą (nasłuch `mousedown` w fazie capture, tylko obserwacja), ruch > 6 px
+  = przeciąganie. **Nie** szukać przeciąganego przedmiotu po klasie `[class*="drag"]` – każdy przedmiot ma `ui-draggable`
+  (błąd z 0.13: zawsze wybierał pierwszy przedmiot z ekwipunku). `noteDrop()` zapisuje reakcję gry do Diagnostyki.
+  Wiersze małego okienka przebudowywane tylko przy zmianie HTML (inaczej giną kliknięcia w ✕).
+- **Okna:** `place()` liczy `max-height` treści z pozycji okna i skali (dół okna zawsze na ekranie). Suwaki skali
+  i czcionki zapisują wartość na `change` (po puszczeniu) – na `input` okno zmieniało rozmiar pod kursorem i suwak skakał.
 - **Zdobycze:** `lootTick()`, `addLoot()`, `renderLoot()`; źródło dropu z sygnałów `sigTick()` (okna) i `noteCmd()`
   (obserwacja `_g` przez `hookG()`); tryb ścisły / luźny (`lootLoose`). Liczy heroiki, legendy, smocze runy.
 - **`diag()`:** Diagnostyka – pierwsza rzecz do poproszenia, gdy coś nie działa.
@@ -68,6 +74,9 @@ Zmiana zatwierdzona na `main` działa po odświeżeniu gry. Plik musi pozostać 
 - Komenda łączenia `moveitem&st=0…` i częściowe łączenie (gdy cały stos się nie mieści).
 - Wykrywanie otwartej torby, nazwy rzadkości (`heroic`, `legendary`…), klasa przeciąganego przedmiotu
   (`ui-draggable-dragging`), dostępność grafiki przedmiotu, sygnały źródła dropów (okno łupu, skrzynki, komendy).
+- Upuszczenie przedmiotu na okno dodatku wywołuje w grze pytanie o wyrzucenie/zniszczenie (zgłoszenie użytkownika,
+  10.2026). Przyczyna nieznana – okno blokuje `mouseup`, ale nie `pointerup`. Czekamy na linijkę „Ostatnie upuszczenie”
+  z Diagnostyki; do tego czasu nie zmieniać obsługi zdarzeń gry na ślepo.
 
 ## Następny etap: depozyt (tylko łączenie stosów na OTWARTEJ stronie)
 

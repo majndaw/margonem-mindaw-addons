@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.13.2
+// @version      0.14.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.13.2';
+  const VER = '0.14.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -161,7 +161,9 @@
           </ul>`) +
         sec('h-watch', 'Obserwowane przedmioty',
           `<ul>
-            <li>Dodajesz przedmiot na 3 sposoby: wpisując nazwę (Szukaj → klik w wynik), przyciskiem <b>🎯 Wskaż w grze</b> (klikasz przedmiot w torbie – nie zostanie użyty) albo <b>przeciągając</b> go z torby na ramkę w małym okienku „Obserwowane”.</li>
+            <li>Dodajesz przedmiot na 3 sposoby: wpisując nazwę (Szukaj → klik w wynik), przyciskiem <b>🎯 Wskaż w grze</b> (klikasz przedmiot w torbie – nie zostanie użyty) albo <b>przeciągając</b> go z torby na ramkę w małym okienku „Obserwowane”. Dodać można tylko przedmioty z torby (nie założone).</li>
+            <li>Gra może przy przeciąganiu zapytać, czy wyrzucić lub zniszczyć przedmiot – wtedy <b>anuluj</b> to okienko. Najbezpieczniej dodawać przyciskiem 🎯 Wskaż w grze.</li>
+            <li><b>✕</b> przy przedmiocie w małym okienku (albo w oknie Torba) przestaje go obserwować – przedmiot w torbie zostaje nietknięty.</li>
             <li>Małe okienko pokazuje grafikę przedmiotu, jego nazwę i <b>łączną ilość ze wszystkich toreb</b> (suma sztuk, nie liczba stosów).</li>
             <li>Dla każdego przedmiotu ustawiasz <b>próg</b> (domyślnie 50). Gdy ilość spadnie poniżej progu, na środku ekranu pojawia się <b style="color:#ffd400">żółty napis</b>. Gdy spadnie do wybranego procentu progu (domyślnie 50%), napis jest <b style="color:#ff3b30">czerwony</b>.</li>
             <li>Możesz ustawić przypomnienie co N sekund (0 = tylko raz). Przycisk <b>Pokaż test napisów</b> pokazuje oba napisy bez czekania.</li>
@@ -183,6 +185,8 @@
         sec('h-look', 'Wygląd i ustawienia',
           `<ul>
             <li><b>Skala interfejsu</b> 40–130% (domyślnie 80%), <b>rozmiar czcionki</b>, <b>przezroczystość</b>, 7 kolorów akcentu, 4 motywy tła, tryb kompaktowy, zaokrąglone rogi i cień.</li>
+            <li>Skala i rozmiar czcionki zmieniają się <b>po puszczeniu suwaka</b> (w trakcie widać tylko liczbę) – dzięki temu suwak nie ucieka spod kursora.</li>
+            <li>Wysokość okna dopasowuje się do miejsca na ekranie – gdy treść się nie mieści, przewiń ją kółkiem myszy.</li>
             <li>Zapamiętywanie pozycji okien, „zawsze na wierzchu”, minimalizacja do ikonki, otwieranie przy starcie gry.</li>
             <li>Powiadomienia, dźwięk po zakończeniu łączenia i ukrywanie okna po akcji można włączyć w sekcji „Inne”.</li>
           </ul>`) +
@@ -193,7 +197,7 @@
           </ul>`) +
         sec('h-diag', 'Diagnostyka',
           `<ul>
-            <li>Przycisk <b>🔍 Diagnostyka</b> (okno Torba) wypisuje informacje techniczne: wersję, układ toreb, wykrytą otwartą torbę, rzadkości, dostępność grafiki oraz sygnały dziennika zdobyczy.</li>
+            <li>Przycisk <b>🔍 Diagnostyka</b> (okno Torba) wypisuje informacje techniczne: wersję, układ toreb, wykrytą otwartą torbę, rzadkości, dostępność grafiki, sygnały dziennika zdobyczy oraz co gra zrobiła po ostatnim upuszczeniu przedmiotu na okno dodatku (komendy i nowe okienka przez 3 s).</li>
             <li>Jeśli coś nie działa, wklej ten wynik – na jego podstawie da się poprawić rozpoznawanie.</li>
           </ul>`) +
         sec('h-soon', 'Jeszcze niedostępne',
@@ -205,10 +209,12 @@
           `<ul>
             <li>Wykrywanie otwartej torby, częściowe łączenie stosów (gdy cały stos się nie mieści) i nazwy rzadkości w grze.</li>
             <li>Przeciąganie przedmiotu na ramkę, pobieranie grafiki przedmiotu oraz rozpoznawanie źródła dropów (okno łupu, skrzynki).</li>
+            <li>Dlaczego gra pyta o wyrzucenie/zniszczenie po upuszczeniu przedmiotu na okno dodatku i czy da się to bezpiecznie wyłączyć – potrzebny wynik Diagnostyki zaraz po takim upuszczeniu.</li>
             <li>Jeśli któraś z tych rzeczy nie działa, użyj Diagnostyki i opisz, co się dzieje.</li>
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.14.0</b> – poprawki: suwaki skali i czcionki już nie skaczą, dolne opcje okien zawsze da się przewinąć i kliknąć, wyłączenie „Zawsze na wierzchu” działa; przeciąganie na ramkę dodaje właściwy przedmiot (wcześniej zawsze ten sam z ekwipunku); ✕ w małym okienku obserwowanych; Diagnostyka zapisuje reakcję gry na upuszczenie przedmiotu na okno.</li>
             <li><b>0.13.2</b> – wczytywanie przez skrypt-ładowacz z GitHub Pages (repozytorium majndaw/margonem-mindaw-addons).</li>
             <li><b>0.13.1</b> – okno Funkcje uzupełnione (pamięć wyniku szukania, liczba sztuk, zastępowanie starej wersji) i dodana Historia zmian.</li>
             <li><b>0.13.0</b> – nowe okno Funkcje z opisem wszystkich funkcji.</li>
@@ -290,6 +296,8 @@
   #mbt-root .wr .wn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #mbt-root .wr b{font-size:1.1em}
   #mbt-root .wr small{opacity:.6}
+  #mbt-root .wr .wx{font-size:1em;padding:0 2px;opacity:.45}
+  #mbt-root .wr .wx:hover{opacity:1;color:#ff3b30}
   #mbt-root .wr.l1 b{color:#ffd400}
   #mbt-root .wr.l2 b{color:#ff3b30}
   #mbt-root .wslot{margin-top:6px;min-height:46px;border:2px dashed var(--bd);border-radius:8px;display:flex;align-items:center;justify-content:center;
@@ -380,6 +388,12 @@
       el[id].style.top = clamp(p[1], 0, Math.max(0, innerHeight - 50)) + 'px';
     }
     el.icon.style.left = el.dock.style.left; el.icon.style.top = el.dock.style.top;
+    // wysokość treści liczona od miejsca okna i skali – dół okna zawsze mieści się na ekranie (da się przewinąć)
+    const sc = S.scale / 100;
+    for (const id of WIN_IDS) {
+      const head = el[id].querySelector('.head').offsetHeight || 56;
+      el[id].querySelector('.body').style.maxHeight = Math.max(100, (innerHeight - parseFloat(el[id].style.top) - 12) / sc - head) + 'px';
+    }
   }
   function applyFold() { $$('.sec').forEach(s => s.classList.toggle('fold', !!S.fold[s.dataset.sec])); }
   function apply() {
@@ -402,7 +416,10 @@
     $('#mbt-showcount').checked = S.showCount;
     $('#mbt-wshow').checked = S.watchShow;
     $('#mbt-wcrit').value = S.watchCrit; $('#mbt-wremind').value = S.watchRemind;
-    WIN_IDS.forEach(id => { el[id].style.zIndex = S.onTop ? 2147483000 : el[id].style.zIndex; });
+    WIN_IDS.forEach(id => {
+      if (S.onTop) el[id].style.zIndex = 2147483000;
+      else if (+el[id].style.zIndex >= 2147483000) el[id].style.zIndex = '';
+    });
     applyFold(); place();
   }
   function view() {
@@ -487,8 +504,13 @@
     }
   });
   $('#mbt-alpha').oninput = e => { S.alpha = +e.target.value; apply(); save(); };
-  $('#mbt-scale').oninput = e => { S.scale = +e.target.value; apply(); save(); };
-  $('#mbt-font').oninput = e => { S.font = +e.target.value; apply(); save(); };
+  // skala i czcionka zmieniają rozmiar okna – w trakcie przesuwania tylko podgląd liczby, zmiana po puszczeniu
+  // (inaczej suwak „ucieka” spod kursora i wartość skacze)
+  $('#mbt-scale').oninput = e => { $('#mbt-scale-l').textContent = e.target.value + '%'; };
+  $('#mbt-scale').onchange = e => { S.scale = +e.target.value; apply(); save(); };
+  $('#mbt-font').oninput = e => { $('#mbt-font-l').textContent = e.target.value + 'px'; };
+  $('#mbt-font').onchange = e => { S.font = +e.target.value; apply(); save(); };
+  addEventListener('resize', place);
 
   // kliknięte okno wychodzi na wierzch
   root.addEventListener('pointerdown', e => {
@@ -832,6 +854,7 @@
   function addFromItem(id, domEl) {
     const it = snap().items.find(i => i.id === String(id));
     if (!it || !it.name) return toast('Nie rozpoznano przedmiotu', RED);
+    if (it.st !== 0) return toast('Obserwować można tylko przedmioty z torby', YEL);
     if (S.watch.some(w => w.name === it.name)) return toast('Już obserwowany: ' + it.name, YEL);
     if (S.watch.length >= 20) return toast('Limit 20 obserwowanych przedmiotów', RED);
     const w = { name: it.name, warn: 50 };
@@ -848,7 +871,7 @@
     renderWList(); view(); bgTick();
     toast('👁 Obserwuję: ' + it.name, OK);
   }
-  let pick = false, pickTimer = 0, dragIt = null;
+  let pick = false, pickTimer = 0, press = null;
   function setPick(on) {
     pick = on; clearTimeout(pickTimer);
     document.documentElement.classList.toggle('mbt-pick', on);
@@ -868,26 +891,48 @@
     }
   };
   ['mousedown', 'mouseup', 'click', 'dblclick', 'pointerdown', 'pointerup', 'contextmenu'].forEach(t => document.addEventListener(t, pickHandler, true));
-  // przeciąganie przedmiotu z torby na ramkę w okienku (jQuery UI oznacza przeciąganą kopię klasą ui-draggable-dragging)
-  const overSlot = e => document.elementsFromPoint(e.clientX, e.clientY).some(n => n.closest && n.closest('[data-wslot]'));
-  function draggedItem() {
-    for (const n of document.querySelectorAll('.ui-draggable-dragging,[class*="drag"][class*="item-id-"]')) {
-      if (root.contains(n)) continue;
-      const m = /item-id-(\d+)/.exec(cls(n));
-      if (m) return { id: m[1], el: n };
-    }
-    return null;
-  }
+  // przeciąganie przedmiotu z torby na ramkę w okienku: zapamiętujemy przedmiot, który został wciśnięty myszą
+  // (tylko obserwacja – zdarzenia trafiają do gry bez zmian); ruch o ponad 6 px = przeciąganie
+  const at = (e, sel) => document.elementsFromPoint(e.clientX, e.clientY).some(n => n.closest && n.closest(sel));
+  document.addEventListener('mousedown', e => {
+    press = null;
+    if (e.button !== 0 || pick) return;
+    const n = e.target && e.target.closest && e.target.closest('.item[class*="item-id-"]');
+    const m = n && !root.contains(n) && /item-id-(\d+)/.exec(cls(n));
+    if (m) press = { id: m[1], el: n, x: e.clientX, y: e.clientY, drag: false };
+  }, true);
   document.addEventListener('mousemove', e => {
-    const d = draggedItem();
-    if (d) { dragIt = { ...d, t: Date.now() }; $$('.wslot').forEach(s => s.classList.toggle('hot', overSlot(e))); }
-    else if (!dragIt || Date.now() - dragIt.t > 400) $$('.wslot').forEach(s => s.classList.remove('hot'));
+    if (!press) return;
+    if (!press.drag && Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) > 6) press.drag = true;
+    if (press.drag) { const hot = at(e, '[data-wslot]'); $$('.wslot').forEach(s => s.classList.toggle('hot', hot)); }
   }, true);
   document.addEventListener('mouseup', e => {
-    const d = dragIt; dragIt = null;
+    const p = press; press = null;
     $$('.wslot').forEach(s => s.classList.remove('hot'));
-    if (d && Date.now() - d.t < 600 && overSlot(e)) addFromItem(d.id, d.el);
+    if (!p || !p.drag) return;
+    if (at(e, '#mbt-root .win')) noteDrop(p);
+    if (at(e, '[data-wslot]')) addFromItem(p.id, p.el);
   }, true);
+  // co gra robi po upuszczeniu przedmiotu na okno dodatku (do Diagnostyki: komendy i nowe okienka przez 3 s)
+  let drop = null, dropObs = null;
+  function noteDrop(p) {
+    const it = readItems().find(i => i.id === p.id);
+    drop = { t: Date.now(), name: it ? it.name : '#' + p.id, cmds: [], wins: [], ui: '' };
+    try {
+      const j = window.jQuery || window.$, ui = j && j.ui, dd = ui && ui.ddmanager;
+      drop.ui = ui ? `jQuery UI ${ui.version || '?'}` + (dd && dd.droppables ? `, strefy upuszczania: ${Object.values(dd.droppables).reduce((n, a) => n + (a.length || 0), 0)}` : '') : 'brak jQuery UI';
+    } catch {}
+    try {
+      if (dropObs) dropObs.disconnect();
+      const d = drop;
+      dropObs = new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1 && !root.contains(n) && d.wins.length < 8 && cls(n)) d.wins.push(n.tagName + '.' + cls(n).slice(0, 70));
+      })));
+      dropObs.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => { if (dropObs) dropObs.disconnect(); dropObs = null; }, 3000);
+    } catch {}
+  }
+  const dropCmd = c => { if (drop && Date.now() - drop.t < 3000 && drop.cmds.length < 8) drop.cmds.push(c.slice(0, 80)); };
 
   // grafika przedmiotu: kanwa ikony z gry (jeśli dostępna), potem zapisana kopia
   function iconSrc(ref) {
@@ -921,8 +966,9 @@
       ctx.font = '18px Arial'; ctx.fillText('🎁', 4, 21);
     });
   }
+  let rowsHTML = '';
   function watchTick(sn) {
-    if (!S.watch.length) { if (S.open.watch) $('#mbt-watchrows').innerHTML = ''; return; }
+    if (!S.watch.length) { if (S.open.watch) $('#mbt-watchrows').innerHTML = rowsHTML = ''; return; }
     const cnt = {}, refs = {}, now = Date.now();
     sn.items.forEach(i => {
       if (i.st !== 0) return;
@@ -930,10 +976,12 @@
       if (!refs[i.name]) refs[i.name] = i.ref;
     });
     if (S.open.watch) {
-      $('#mbt-watchrows').innerHTML = S.watch.map((w, i) => {
+      const html = S.watch.map((w, i) => {
         const n = cnt[w.name] || 0;
-        return `<div class="wr l${wLevel(n, w)}" title="${esc(w.name)}"><canvas width="28" height="28" data-wi="${i}"></canvas><span class="wn">${esc(w.name)}</span><b>${n}</b><small>/${w.warn}</small></div>`;
+        return `<div class="wr l${wLevel(n, w)}" title="${esc(w.name)}"><canvas width="28" height="28" data-wi="${i}"></canvas><span class="wn">${esc(w.name)}</span><b>${n}</b><small>/${w.warn}</small><button class="ib wx" data-wdel="${i}" title="Przestań obserwować">✕</button></div>`;
       }).join('');
+      // przebudowa tylko przy zmianie – inaczej kliknięcia w ✕ ginęły przy odświeżaniu co 2 s
+      if (html !== rowsHTML) { $('#mbt-watchrows').innerHTML = rowsHTML = html; }
       paintIcons(refs);
     }
     S.watch.forEach(w => {
@@ -1032,7 +1080,7 @@
       if (typeof orig !== 'function') return;
       if (orig.__mbt) { hooked = true; return; }
       const wrap = function (...a) {
-        try { if (typeof a[0] === 'string') noteCmd(a[0]); } catch {}
+        try { if (typeof a[0] === 'string') { noteCmd(a[0]); dropCmd(a[0]); } } catch {}
         return orig.apply(this, a);
       };
       wrap.__mbt = 1;
@@ -1100,6 +1148,8 @@
       `Okna łupu: ${sigInfo.loot.join(' ; ') || '-'} | okna wykluczające: ${sigInfo.excl.join(' ; ') || '-'}`,
       `Ostatnie komendy: ${cmds.slice(-8).map(c => c.c).join(' | ') || '-'}`,
       `Widoczne węzły przedmiotów w DOM: ${visibleIds().size}`,
+      drop ? `Ostatnie upuszczenie na okno dodatku (${ago(drop.t)}): ${drop.name} | ${drop.ui || '-'} | komendy gry: ${drop.cmds.join(' ; ') || 'brak'} | nowe elementy: ${drop.wins.join(' ; ') || 'brak'}`
+        : 'Ostatnie upuszczenie na okno dodatku: jeszcze nie było',
       `Wykryta otwarta torba: ${d ? (d.k + 1) + ' (' + d.how + ')' : 'NIE WYKRYTO'}`,
       stk ? `Przykład stosu: ${stk.name} tpl=${stk.tpl} szt.=${stk.amount} cap=${stk.cap}` : 'Brak stosów w plecaku',
       'Nawigacja toreb (klasy):', ...navCls,
