@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.16.0** (20.10.2026).
+Aktualna wersja: **0.16.1** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -57,7 +57,8 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   Przyciski z rysunkiem w środku (logo) obsługiwać przez `closest('[data-…]')`, nie `e.target.dataset`.
 - **Sortowanie:** `sortPlan()` (czysta funkcja: miejsce j dostaje j-ty przedmiot, przeniesienia tylko na wolne pola,
   ≤ 2 ruchy na przedmiot, wymaga 1 wolnego pola) i `sortBag()` (komenda `moveitem&st=0&id&x&y`, `waitPos()` po każdym
-  kroku, przerwanie przy pierwszym błędzie, przerwa 300 ms, zatrzymanie kolejnym kliknięciem). Test: 6000 losowych toreb.
+  kroku co 50 ms, przerwanie przy pierwszym błędzie, przerwa 200 ms, zatrzymanie kolejnym kliknięciem).
+  `send()` nie czeka na odpowiedź zwrotną `_g` (czekanie dawało do 4 s na krok – użytkownik: „bardzo wolne”). Test: 6000 losowych toreb.
 - **Szukanie:** `find()` (bez polskich znaków przez `norm()`, kilka słów, historia, filtr rzadkości), `dups()`.
 - **Łączenie:** `buildPlan()` (największy niepełny stos dobiera od najmniejszych do limitu `capacity`)
   i `merge()` (komenda `moveitem&st=0&id=…&x=…&y=…`, kontrola `waitGrow()` po każdym kroku).

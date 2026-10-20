@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.16.0
+// @version      0.16.1
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.16.0';
+  const VER = '0.16.1';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -132,7 +132,7 @@
             <li><b>Kropki</b> w rogu okna (siatka 3×3) służą do przesuwania – tylko one. Każde okno przesuwasz osobno, a dock i ikonę ▣ też.</li>
             <li><b>–</b> zwija okno do paska tytułu, <b>×</b> zamyka. Kliknięcie w nagłówek sekcji zwija ją (stan jest zapamiętywany).</li>
             <li>Kliknięte okno wychodzi na wierzch. Przyciski „Reset” i „Obok siebie” (układa otwarte okna, a gdy brakuje miejsca – kaskadą) w Ustawieniach szybko układają okna. Okno nie wyjdzie za krawędź ekranu. Pozycje okien są zawsze zapamiętywane.</li>
-            <li>Po zamknięciu docka zostaje małe <b>logo plecaka</b> – kliknij je, żeby wrócić. Po odświeżeniu gry dock jest otwarty albo zamknięty tak, jak go zostawiłeś.</li>
+            <li>Po zamknięciu docka zostaje małe <b>logo M</b> (Mindaw) – kliknij je, żeby wrócić. Po odświeżeniu gry dock jest otwarty albo zamknięty tak, jak go zostawiłeś.</li>
             <li>Numer wersji widać przy tytule okna Torba. Nowa wersja skryptu sama zastępuje starą (stare okno jest usuwane); ustawienia zostają.</li>
             <li><b>Ładowanie z GitHuba:</b> w Tampermonkey jest tylko mały skrypt-ładowacz, który przy każdym wejściu do gry wczytuje najnowszą wersję z GitHub Pages (majndaw.github.io/margonem-mindaw-addons). Zmiana w repozytorium działa po odświeżeniu gry, zwykle po kilku minutach od zapisania.</li>
           </ul>`) +
@@ -211,6 +211,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.16.1</b> – logo „M” Mindaw zamiast plecaka; szybsze sortowanie i łączenie: skrypt nie czeka już do 4 s na odpowiedź gry, tylko co 50 ms sprawdza, czy przedmiot się przeniósł; przerwa między krokami 200 ms; wynik sortowania pokazuje czas.</li>
             <li><b>0.16.0</b> – działające <b>sortowanie</b> otwartej torby (po nazwie, typie, jakości); kwadraty zaznaczania zamienione na przełączniki (gra psuła zwykłe pola wyboru); 👁 Obserwowane i 🧰 Depozyt (w przygotowaniu) w docku; logo plecaka zamiast ▣.</li>
             <li><b>0.15.0</b> – przedmiot upuszczony na okno dodatku wraca na swoje miejsce (bez pytania o wyrzucenie); okna nie wychodzą za prawą krawędź ekranu („Obok siebie” układa tylko otwarte okna); usunięte niedziałające i zbędne opcje: sortowanie i „Usuń zaznaczone” (nieaktywne), Depozyt w docku, sekcje „Pozycja i zachowanie” i „Inne”, rogi/cień, „Do prawej”; pozycje okien i stan docka zapamiętywane zawsze.</li>
             <li><b>0.14.0</b> – poprawki: suwaki skali i czcionki już nie skaczą, dolne opcje okien zawsze da się przewinąć i kliknąć, wyłączenie „Zawsze na wierzchu” działa; przeciąganie na ramkę dodaje właściwy przedmiot (wcześniej zawsze ten sam z ekwipunku); ✕ w małym okienku obserwowanych; Diagnostyka zapisuje reakcję gry na upuszczenie przedmiotu na okno.</li>
@@ -227,8 +228,8 @@
     { id: 'watch', icon: '👁', title: 'Obserwowane', w: 230, mini: true, html: '<div id="mbt-watchrows"></div><div class="wslot" data-wslot title="Przeciągnij przedmiot z torby w tę ramkę"><span>＋</span><small>przeciągnij tu przedmiot z torby</small></div><button class="b" data-wtarget="1" style="width:100%;margin-top:6px" title="Kliknij, a potem kliknij przedmiot w torbie">🎯 Wskaż w grze</button>' },
   ];
   const WIN_IDS = WINS.map(w => w.id);
-  // logo: plecak z klamrą (kolor akcentu)
-  const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V5a3 3 0 0 1 6 0v1"/><rect x="4" y="6" width="16" height="15" rx="3.5"/><path d="M4 11.5h16"/><rect x="10" y="9.8" width="4" height="3.6" rx="1" fill="currentColor"/><path d="M8 16.5h8" opacity=".55"/></svg>';
+  // logo Mindaw: geometryczne „M” w sześciokątnej tarczy z kryształem (kolor akcentu)
+  const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1.6 21 6.8v10.4l-9 5.2-9-5.2V6.8z" fill="currentColor" fill-opacity=".14" stroke-width="1.5"/><path d="M7 16.8V8.6l5 5.6 5-5.6v8.2" stroke-width="2.3"/><path d="M12 4.3l1.3 1.3L12 6.9l-1.3-1.3z" fill="currentColor" stroke-width="1"/></svg>';
   const gripHTML = id => `<span class="grip" data-grip="${id}" title="Przeciągnij, aby przenieść">${'<i></i>'.repeat(9)}</span>`;
 
   /* ---------- style ---------- */
@@ -751,14 +752,13 @@
   /* ---------- łączenie stosów (tylko otwarta torba) ---------- */
   const keyOf = i => i.tpl + '|' + i.stat.replace(/(^|;)amount=\d+/g, '').replace(/^;/, '');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const send = cmd => new Promise(res => {
-    try { window._g(cmd, r => res(r)); } catch { res(null); }
-    setTimeout(() => res('timeout'), 4000);
-  });
+  // komenda do serwera bez czekania na odpowiedź zwrotną (czekanie na nią dawało do 4 s na krok);
+  // efekt każdego kroku i tak sprawdzają waitGrow() / waitPos()
+  const send = cmd => { try { window._g(cmd); } catch {} };
   const byId = id => readItems().find(i => i.id === id);
   async function waitGrow(dstId, before, ms = 2500) {
-    for (let t = 0; t < ms; t += 150) {
-      await sleep(150);
+    for (let t = 0; t < ms; t += 50) {
+      await sleep(50);
       const d = byId(dstId);
       if (d && d.amount > before) return d;
     }
@@ -801,7 +801,7 @@
         const dst0 = byId(s.dstId), src0 = byId(s.srcId);
         if (!dst0 || !src0) { log.push(`„${s.name}”: ekwipunek się zmienił – pomijam.`); dead.add(s.key); continue; }
         if (dst0.amount >= dst0.cap) { dead.add(s.key); continue; }
-        await send(`moveitem&st=0&id=${s.srcId}&x=${dst0.x}&y=${dst0.y}`);
+        send(`moveitem&st=0&id=${s.srcId}&x=${dst0.x}&y=${dst0.y}`);
         const d1 = await waitGrow(s.dstId, dst0.amount);
         if (!(d1 && d1.amount > dst0.amount)) {
           if (!S.verified && done === 0 && s.full) {
@@ -859,8 +859,8 @@
   }
   let sorting = false, stopSort = false;
   async function waitPos(id, x, y, amount, ms = 2500) {
-    for (let t = 0; t < ms; t += 150) {
-      await sleep(150);
+    for (let t = 0; t < ms; t += 50) {
+      await sleep(50);
       const d = byId(id);
       if (d && d.x === x && d.y === y) return d.amount === amount;
     }
@@ -875,6 +875,7 @@
     if (!r.moves.length) return say(`Torba ${k + 1}: już posortowana ${SORTS[mode].n}.`);
     busy = sorting = true; stopSort = false;
     let done = 0, msg = '';
+    const t0 = Date.now();
     try {
       for (const m of r.moves) {
         if (stopSort) { msg = 'Zatrzymano na Twoje kliknięcie.'; break; }
@@ -882,16 +883,16 @@
         if (!it) { msg = 'Przedmiot zniknął z torby – przerywam.'; break; }
         if (cur.some(i => i.st === 0 && i.x === m.x && i.y === m.y)) { msg = 'Docelowe miejsce jest zajęte (ekwipunek się zmienił) – przerywam.'; break; }
         say(`Torba ${k + 1}: sortuję ${SORTS[mode].n}… krok ${done + 1} z ${r.moves.length}\n(kliknij dowolny przycisk sortowania, żeby zatrzymać)`);
-        await send(`moveitem&st=0&id=${m.id}&x=${m.x}&y=${m.y}`);
+        send(`moveitem&st=0&id=${m.id}&x=${m.x}&y=${m.y}`);
         if (!(await waitPos(m.id, m.x, m.y, it.amount))) {
           msg = `Gra nie przeniosła „${it.name}” – przerywam.` + (done ? '' : ' Wklej mi wynik Diagnostyki.');
           break;
         }
         done++;
-        await sleep(300);
+        await sleep(200);
       }
     } finally { busy = sorting = false; }
-    say(`Torba ${k + 1}: sortowanie ${SORTS[mode].n} – wykonano ${done} z ${r.moves.length} przeniesień.` + (msg ? '\n' + msg : ''));
+    say(`Torba ${k + 1}: sortowanie ${SORTS[mode].n} – wykonano ${done} z ${r.moves.length} przeniesień (${((Date.now() - t0) / 1000).toFixed(1)} s).` + (msg ? '\n' + msg : ''));
     updateNote();
   }
 
