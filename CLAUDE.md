@@ -2,10 +2,13 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja w chwili tworzenia tego pliku: **0.13.1** (20.10.2026).
+Aktualna wersja w chwili tworzenia tego pliku: **0.13.2** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
-Użytkownik instaluje skrypt, wklejając cały plik do Tampermonkey (nadpisuje poprzednią wersję).
+**Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
+`https://majndaw.github.io/margonem-mindaw-addons/margonem-bag-tools.user.js` (GitHub Pages z gałęzi `main`).
+Zmiana zatwierdzona na `main` działa po odświeżeniu gry. Plik musi pozostać poprawnym JS uruchamianym w kontekście strony
+(`window.Engine`, `window._g`), bez funkcji `GM_*`. Nie zmieniaj nazwy ani położenia pliku bez poprawienia ładowacza.
 
 ## Zasady obowiązkowe
 
@@ -121,8 +124,6 @@ Wyniki wklejone przez użytkownika: przed użyciem usuń z nich wszystko, co wyg
 - Filtr po typie przedmiotu (`itemTypeName`), ulubione/ochrona przed łączeniem, statystyki toreb,
   szukanie po poziomie wymaganym.
 - Znany drobiazg: po restarcie przeglądarki otwarte okna wracają, a dock nie (użytkownik chce to najpierw przetestować).
-- Pomysł techniczny: `@updateURL` / `@downloadURL` wskazujące na plik „raw” w tym repozytorium
-  (automatyczne aktualizacje w Tampermonkey).
 
 ## Uwaga o zasadach gry
 
