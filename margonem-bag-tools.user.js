@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.18.0
+// @version      0.19.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.18.0';
+  const VER = '0.19.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -155,6 +155,7 @@
             <li>W depozycie gra nie łączy stosów, więc skrypt dla każdego przedmiotu po kolei: bierze jego niepełne stosy do torby, łączy je do limitu i odkłada na ich dawne miejsca w depozycie. Pełne stosy zostają nietknięte.</li>
             <li>Potrzeba tylu wolnych miejsc w torbach, ile stosów ma najliczniejszy przedmiot – jeśli brakuje, skrypt mówi ile i nic nie robi. Branie i odkładanie w depozycie jest darmowe.</li>
             <li>Każdy krok jest sprawdzany. Przy błędzie skrypt przerywa i odkłada stosy z powrotem do depozytu; jeśli coś zostanie w torbie, wypisze co. Ponowne kliknięcie zatrzymuje po bieżącym przedmiocie.</li>
+            <li><b>Sortowanie depozytu</b> – przyciski Po nazwie / Po typie / Po jakości działają jak w torbie, ale na otwartej stronie depozytu (14 kolumn). Przedmioty są przenoszone w obrębie depozytu, po jednym, każdy krok sprawdzany; potrzebne 1 wolne miejsce na stronie.</li>
             <li>Sekcja <b>Badanie depozytu</b> (Zbadaj, Nagrywaj, Kopiuj) tylko czyta i zapisuje – przydaje się, gdy coś nie działa.</li>
           </ul>`) +
         sec('h-search', 'Szukanie przedmiotów',
@@ -206,7 +207,7 @@
           </ul>`) +
         sec('h-soon', 'Jeszcze niedostępne',
           `<ul>
-            <li><b>Sortowanie depozytu</b> – na razie tylko łączenie stosów (okno 🧰 Depozyt).</li>
+            <li>Sortowanie i łączenie w depozycie działa na razie tylko na <b>otwartej stronie</b>, nie na wszystkich naraz.</li>
             <li>Zasada projektu: skrypt nie usuwa, nie sprzedaje i nie wyrzuca przedmiotów.</li>
           </ul>`) +
         sec('h-unsure', 'Co nie zostało potwierdzone w grze',
@@ -214,12 +215,14 @@
             <li>Wykrywanie otwartej torby, częściowe łączenie stosów (gdy cały stos się nie mieści) i nazwy rzadkości w grze.</li>
             <li>Przeciąganie przedmiotu na ramkę, pobieranie grafiki przedmiotu oraz rozpoznawanie źródła dropów (okno łupu, skrzynki).</li>
             <li>Depozyt: komendy depo&amp;get/put i łączenie w torbie sprawdzone tylko na stronie testowej (komendy z nagrania gry 20.10.2026); zachowanie przy kilku stronach depozytu – nieznane (skrypt działa tylko na przedmiotach widocznych na ekranie).</li>
+            <li>Sortowanie depozytu: 8 rzędów na stronie (wynika z licznika wolnych miejsc 89 + 23 przedmioty = 112) i numeracja pól na kolejnych stronach – niepotwierdzone; przy nietypowym układzie skrypt odmawia sortowania.</li>
             <li>Sortowanie: czy komenda przeniesienia na wolne miejsce działa w grze tak samo jak przy łączeniu stosów; kolejność „jakości” (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity) i to, że każdy przedmiot zajmuje 1 pole.</li>
             <li>Czy gra po upuszczeniu przedmiotu na okno dodatku na pewno odkłada go na miejsce (bez pytania o wyrzucenie) – sprawdzone tylko na stronie testowej.</li>
             <li>Jeśli któraś z tych rzeczy nie działa, użyj Diagnostyki i opisz, co się dzieje.</li>
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.19.0</b> – <b>sortowanie depozytu</b> (otwarta strona): po nazwie, typie i jakości, jak w torbie.</li>
             <li><b>0.18.0</b> – <b>łączenie identycznych stosów w depozycie</b> na otwartej stronie (przez torbę: weź → połącz → odłóż na miejsce, każdy krok sprawdzany); badanie depozytu przeniesione do zwijanej sekcji.</li>
             <li><b>0.17.0</b> – okno 🧰 Depozyt z narzędziami do zbadania depozytu (Zbadaj, Nagrywaj, Kopiuj wynik) – przygotowanie do łączenia stosów w depozycie.</li>
             <li><b>0.16.1</b> – logo „M” Mindaw zamiast plecaka; szybsze sortowanie i łączenie: skrypt nie czeka już do 4 s na odpowiedź gry, tylko co 50 ms sprawdza, czy przedmiot się przeniósł; przerwa między krokami 200 ms; wynik sortowania pokazuje czas.</li>
@@ -240,9 +243,11 @@
     {
       id: 'depo', icon: '🧰', title: 'Depozyt', w: 470,
       html:
-        sec('depo', 'Łączenie identycznych stosów (otwarta strona)',
+        sec('depo', 'Łączenie i sortowanie (otwarta strona)',
           `<button class="b main" id="mbt-depomerge" title="Łączy identyczne stosy na otwartej stronie depozytu przez torbę">⛓ &nbsp;Połącz identyczne w depozycie</button>
            <div class="note">Działa tylko na <b>otwartej stronie</b> depozytu. W depozycie gra nie łączy stosów, więc skrypt po kolei dla każdego przedmiotu: bierze jego stosy do torby (potrzebne wolne miejsca), łączy je do limitu i odkłada na ich miejsca w depozycie. Każdy krok jest sprawdzany; przy błędzie przerywa i odkłada stosy z powrotem. Kliknij ponownie, żeby zatrzymać po bieżącym przedmiocie.</div>
+           <div class="r"><button class="b" data-dsort="name" title="Alfabetycznie">A↓Z Po nazwie</button><button class="b" data-dsort="type" title="Według rodzaju przedmiotu">Po typie</button><button class="b" data-dsort="qual" title="Od najrzadszych">★ Po jakości</button></div>
+           <div class="note">Sortowanie układa przedmioty <b>otwartej strony</b> od lewego górnego rogu, bez luk – po jednym, tylko na wolne miejsca (potrzebne 1 wolne miejsce na stronie). Kliknięcie dowolnego przycisku sortowania w trakcie zatrzymuje.</div>
            <div class="out" id="mbt-depores"></div>`) +
         sec('depostudy', 'Badanie depozytu (dla autora)',
           `<div class="note">Te przyciski <b>nie wysyłają żadnych komend</b> – tylko czytają i zapisują, co się dzieje. Przydają się, gdy coś w depozycie nie działa.</div>
@@ -541,6 +546,8 @@
     if (t.closest('[data-wtarget]')) setPick(!pick);
     const so = t.closest('[data-sort]');
     if (so) sortBag(so.dataset.sort);
+    const ds = t.closest('[data-dsort]');
+    if (ds) sortDepo(ds.dataset.dsort);
   });
   root.addEventListener('change', e => {
     const t = e.target;
@@ -783,7 +790,7 @@
   const keyOf = i => i.tpl + '|' + i.stat.replace(/(^|;)amount=\d+/g, '').replace(/^;/, '');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   // komenda do serwera bez czekania na odpowiedź zwrotną (czekanie na nią dawało do 4 s na krok);
-  // efekt każdego kroku i tak sprawdzają waitGrow() / waitPos()
+  // efekt każdego kroku i tak sprawdzają waitGrow() / waitFor()
   const send = cmd => { try { window._g(cmd); } catch {} };
   const byId = id => readItems().find(i => i.id === id);
   async function waitGrow(dstId, before, ms = 2500) {
@@ -863,9 +870,10 @@
     qual: { n: 'po jakości', f: (a, b) => ((QUAL.indexOf(a.rar) + 1 || 99) - (QUAL.indexOf(b.rar) + 1 || 99)) || a.name.localeCompare(b.name, 'pl') },
   };
   // plan: miejsce j dostaje j-ty przedmiot; zajmujący je obcy przedmiot idzie najpierw na wolne miejsce dalej w torbie
+  // b: { idx, from (pierwszy rząd), cap, cols (domyślnie 7 – torba), x0 (pierwsza kolumna, domyślnie 0) }
   function sortPlan(items, b, mode) {
-    const cells = [];
-    for (let j = 0; j < b.cap; j++) cells.push([j % COLS, b.from + Math.floor(j / COLS)]);
+    const cells = [], cols = b.cols || COLS, x0 = b.x0 || 0;
+    for (let j = 0; j < b.cap; j++) cells.push([x0 + j % cols, b.from + Math.floor(j / cols)]);
     const its = items.filter(i => i.bag === b.idx), at = new Array(b.cap).fill(null), where = {};
     for (const i of its) {
       const j = cells.findIndex(c => c[0] === i.x && c[1] === i.y);
@@ -888,13 +896,30 @@
     return { moves };
   }
   let sorting = false, stopSort = false;
-  async function waitPos(id, x, y, amount, ms = 2500) {
-    for (let t = 0; t < ms; t += 50) {
-      await sleep(50);
-      const d = byId(id);
-      if (d && d.x === x && d.y === y) return d.amount === amount;
-    }
-    return false;
+  // wykonanie planu sortowania: po jednym przeniesieniu, sprawdzenie miejsca i ilości, przerwanie przy pierwszym błędzie
+  // o: { label, moves, mode, cmd(m) → komenda, loc ('g' | 'd'), out(t) }
+  async function runSort(o) {
+    busy = sorting = true; stopSort = false;
+    const occ = i => o.loc !== 'g' || i.st === 0, t0 = Date.now();
+    let done = 0, msg = '';
+    try {
+      for (const m of o.moves) {
+        if (stopSort) { msg = 'Zatrzymano na Twoje kliknięcie.'; break; }
+        const cur = readItems(o.loc), it = cur.find(i => i.id === m.id);
+        if (!it) { msg = 'Przedmiot zniknął – przerywam.'; break; }
+        if (cur.some(i => occ(i) && i.x === m.x && i.y === m.y)) { msg = 'Docelowe miejsce jest zajęte (coś się zmieniło) – przerywam.'; break; }
+        o.out(`${o.label}: sortuję ${SORTS[o.mode].n}… krok ${done + 1} z ${o.moves.length}\n(kliknij dowolny przycisk sortowania, żeby zatrzymać)`);
+        send(o.cmd(m));
+        const ok = await waitFor(() => { const d = readItems(o.loc).find(i => i.id === m.id); return d && d.x === m.x && d.y === m.y ? d : null; });
+        if (!ok || ok.amount !== it.amount) {
+          msg = `Gra nie przeniosła „${it.name}” – przerywam.` + (done ? '' : ' Wklej mi wynik Diagnostyki.');
+          break;
+        }
+        done++;
+        await sleep(200);
+      }
+    } finally { busy = sorting = false; }
+    o.out(`${o.label}: sortowanie ${SORTS[o.mode].n} – wykonano ${done} z ${o.moves.length} przeniesień (${((Date.now() - t0) / 1000).toFixed(1)} s).` + (msg ? '\n' + msg : ''));
   }
   async function sortBag(mode) {
     if (busy) { if (sorting) { stopSort = true; say('Zatrzymuję sortowanie…'); } else say('Trwa inna akcja…'); return; }
@@ -903,27 +928,29 @@
     const k = d0.k, r = sortPlan(s0.items, s0.L[k], mode);
     if (r.err) return say(`Torba ${k + 1}: ${r.err}`);
     if (!r.moves.length) return say(`Torba ${k + 1}: już posortowana ${SORTS[mode].n}.`);
-    busy = sorting = true; stopSort = false;
-    let done = 0, msg = '';
-    const t0 = Date.now();
-    try {
-      for (const m of r.moves) {
-        if (stopSort) { msg = 'Zatrzymano na Twoje kliknięcie.'; break; }
-        const cur = readItems(), it = cur.find(i => i.id === m.id);
-        if (!it) { msg = 'Przedmiot zniknął z torby – przerywam.'; break; }
-        if (cur.some(i => i.st === 0 && i.x === m.x && i.y === m.y)) { msg = 'Docelowe miejsce jest zajęte (ekwipunek się zmienił) – przerywam.'; break; }
-        say(`Torba ${k + 1}: sortuję ${SORTS[mode].n}… krok ${done + 1} z ${r.moves.length}\n(kliknij dowolny przycisk sortowania, żeby zatrzymać)`);
-        send(`moveitem&st=0&id=${m.id}&x=${m.x}&y=${m.y}`);
-        if (!(await waitPos(m.id, m.x, m.y, it.amount))) {
-          msg = `Gra nie przeniosła „${it.name}” – przerywam.` + (done ? '' : ' Wklej mi wynik Diagnostyki.');
-          break;
-        }
-        done++;
-        await sleep(200);
-      }
-    } finally { busy = sorting = false; }
-    say(`Torba ${k + 1}: sortowanie ${SORTS[mode].n} – wykonano ${done} z ${r.moves.length} przeniesień (${((Date.now() - t0) / 1000).toFixed(1)} s).` + (msg ? '\n' + msg : ''));
+    await runSort({ label: `Torba ${k + 1}`, moves: r.moves, mode, loc: 'g', out: say, cmd: m => `moveitem&st=0&id=${m.id}&x=${m.x}&y=${m.y}` });
     updateNote();
+  }
+  // strona depozytu: 14 kolumn (potwierdzone), 8 rzędów (112 miejsc – licznik wolnych miejsc w grze + przedmioty = 112)
+  const DCOLS = 14, DROWS = 8;
+  function depoPage() {
+    const vis = visibleIds(), all = readItems('d'), page = all.filter(i => vis.has(i.id));
+    if (!page.length) return { err: 'nie widzę przedmiotów na otwartej stronie depozytu.' };
+    const x0 = Math.floor(Math.min(...page.map(i => i.x)) / DCOLS) * DCOLS, y0 = Math.floor(Math.min(...page.map(i => i.y)) / DROWS) * DROWS;
+    const inside = i => i.x >= x0 && i.x < x0 + DCOLS && i.y >= y0 && i.y < y0 + DROWS;
+    // ostrożnie: przedmioty strony muszą mieścić się w jednym prostokącie 14×8, w którym nie leży nic niewidocznego
+    if (!page.every(inside) || all.some(i => !vis.has(i.id) && inside(i))) return { err: 'nietypowy układ strony depozytu – nie sortuję. Wklej mi wynik „Zbadaj depozyt”.' };
+    return { items: page.map(i => ({ ...i, bag: 0 })), b: { idx: 0, from: y0, x0, cap: DCOLS * DROWS, cols: DCOLS } };
+  }
+  async function sortDepo(mode) {
+    if (busy) { if (sorting) { stopSort = true; dsay('Zatrzymuję sortowanie…'); } else dsay('Trwa inna akcja…'); return; }
+    if (!depoOpen()) return dsay('Otwórz depozyt w grze – na stronie, którą chcesz posortować.');
+    const pg = depoPage();
+    if (pg.err) return dsay('Depozyt: ' + pg.err);
+    const r = sortPlan(pg.items, pg.b, mode);
+    if (r.err) return dsay('Depozyt: ' + r.err.replace('torb', 'stron'));
+    if (!r.moves.length) return dsay(`Depozyt: strona już posortowana ${SORTS[mode].n}.`);
+    await runSort({ label: 'Depozyt', moves: r.moves, mode, loc: 'd', out: dsay, cmd: m => `depo&move=${m.id}&x=${m.x}&y=${m.y}` });
   }
 
   /* ---------- obserwowane przedmioty ---------- */

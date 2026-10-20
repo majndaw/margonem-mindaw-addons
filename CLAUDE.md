@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.18.0** (20.10.2026).
+Aktualna wersja: **0.19.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -56,7 +56,7 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   **Nie używać `<input type="checkbox">`** – gra anuluje domyślne działanie kliknięć, pola wyboru „migały” i nie działały.
   Przyciski z rysunkiem w środku (logo) obsługiwać przez `closest('[data-…]')`, nie `e.target.dataset`.
 - **Sortowanie:** `sortPlan()` (czysta funkcja: miejsce j dostaje j-ty przedmiot, przeniesienia tylko na wolne pola,
-  ≤ 2 ruchy na przedmiot, wymaga 1 wolnego pola) i `sortBag()` (komenda `moveitem&st=0&id&x&y`, `waitPos()` po każdym
+  ≤ 2 ruchy na przedmiot, wymaga 1 wolnego pola) i `sortBag()` / `sortDepo()` przez wspólne `runSort()` (komenda `moveitem&st=0&id&x&y`, `waitPos()` po każdym
   kroku co 50 ms, przerwanie przy pierwszym błędzie, przerwa 200 ms, zatrzymanie kolejnym kliknięciem).
   `send()` nie czeka na odpowiedź zwrotną `_g` (czekanie dawało do 4 s na krok – użytkownik: „bardzo wolne”). Test: 6000 losowych toreb.
 - **Szukanie:** `find()` (bez polskich znaków przez `norm()`, kilka słów, historia, filtr rzadkości), `dups()`.
@@ -110,7 +110,12 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 Dla każdej grupy: `depo&get` na wolne pola torby → `stackSteps()` + `moveitem` w torbie → `depo&put` na pierwotne
 pola (także po błędzie). Sprawdzenie po każdym kroku (`waitFor`, 50 ms, do 3 s), przerwa 200 ms, przerwanie przy
 pierwszym błędzie, zatrzymanie kolejnym kliknięciem między grupami. Niepotwierdzone w grze: całość (test na stronie
-testowej); numeracja pól przy wielu stronach. Dalej: sortowanie depozytu (prośba użytkownika).
+testowej); numeracja pól przy wielu stronach. **Potwierdzone w grze przez użytkownika (20.10.2026): „działa od razu”.**
+
+`sortDepo()` (0.19.0): `depoPage()` bierze przedmioty widoczne na ekranie, wyznacza prostokąt strony 14×8
+(`DCOLS`, `DROWS`; 8 rzędów wynika z licznika 89 wolnych + 23 przedmioty = 112) i odmawia, gdy przedmioty się w nim
+nie mieszczą albo leży w nim coś niewidocznego. Plan: `sortPlan()` z `b.cols`/`b.x0`; wykonanie: wspólne `runSort()`
+(torba: `moveitem`, depozyt: `depo&move=ID&x&y` na wolne pole – potwierdzone nagraniem).
 
 Ustalone (źródła z 2025, sprawdzone 10.2026): do 16 zakładek; po otwarciu depozytu gra ładuje zakładki 1–8,
 a 9–16 dopiero po kliknięciu którejś z nich; wbudowana wyszukiwarka widzi tylko załadowane zakładki.
