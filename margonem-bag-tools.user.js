@@ -1,17 +1,18 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.13.1
+// @version      0.13.2
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
 // @run-at       document-idle
 // @grant        none
+// @homepageURL  https://github.com/majndaw/margonem-mindaw-addons
 // ==/UserScript==
 
 (() => {
   'use strict';
-  const VER = '0.13.1';
+  const VER = '0.13.2';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -141,6 +142,7 @@
             <li>Kliknięte okno wychodzi na wierzch. Przyciski „Reset / Obok siebie / Do prawej” w Ustawieniach szybko układają okna.</li>
             <li>Po zamknięciu docka zostaje mała ikona ▣ – kliknij ją, żeby wrócić.</li>
             <li>Numer wersji widać przy tytule okna Torba. Nowa wersja skryptu sama zastępuje starą (stare okno jest usuwane); ustawienia zostają.</li>
+            <li><b>Ładowanie z GitHuba:</b> w Tampermonkey jest tylko mały skrypt-ładowacz, który przy każdym wejściu do gry wczytuje najnowszą wersję z GitHub Pages (majndaw.github.io/margonem-mindaw-addons). Zmiana w repozytorium działa po odświeżeniu gry, zwykle po kilku minutach od zapisania.</li>
           </ul>`) +
         sec('h-merge', 'Łączenie identycznych stosów',
           `<ul>
@@ -207,6 +209,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.13.2</b> – wczytywanie przez skrypt-ładowacz z GitHub Pages (repozytorium majndaw/margonem-mindaw-addons).</li>
             <li><b>0.13.1</b> – okno Funkcje uzupełnione (pamięć wyniku szukania, liczba sztuk, zastępowanie starej wersji) i dodana Historia zmian.</li>
             <li><b>0.13.0</b> – nowe okno Funkcje z opisem wszystkich funkcji.</li>
             <li><b>0.12.0</b> – obserwowanie przedmiotu przez przeciągnięcie lub wskazanie w grze; dziennik zdobyczy tylko z dropów (heroiki, legendy, smocze runy), licznik od 00:00.</li>
