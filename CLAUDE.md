@@ -10,6 +10,11 @@ Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 Zmiana zatwierdzona na `main` działa po odświeżeniu gry. Plik musi pozostać poprawnym JS uruchamianym w kontekście strony
 (`window.Engine`, `window._g`), bez funkcji `GM_*`. Nie zmieniaj nazwy ani położenia pliku bez poprawienia ładowacza.
 
+**Ładowacz:** `loader.user.js` to kopia (tylko do wglądu) skryptu-ładowacza zainstalowanego w Tampermonkey –
+zmiana tego pliku w repozytorium **nie** zmienia ładowacza w grze (użytkownik musi go podmienić ręcznie).
+Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej). Nowy dodatek = nowy plik
+`*.user.js` w głównym katalogu + dopisanie jego nazwy do tablicy `ADDONS` w ładowaczu (w repo i w Tampermonkey).
+
 ## Zasady obowiązkowe
 
 1. **Nigdy nie usuwać, nie sprzedawać i nie wyrzucać przedmiotów.** Żadnych funkcji tego typu
