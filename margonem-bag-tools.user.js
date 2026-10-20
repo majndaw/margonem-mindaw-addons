@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.17.0
+// @version      0.18.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.17.0';
+  const VER = '0.18.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -32,7 +32,7 @@
     showCount: true, verified: false, lootToast: true, lootLoose: false,
     watch: [], watchShow: true, watchCrit: 50, watchRemind: 0,
     pos: { dock: [20, 100], torba: [162, 100], set: [733, 100], loot: [300, 140], help: [350, 120], watch: [1125, 100], depo: [400, 140] },
-    open: { torba: false, set: false, loot: false, help: false, watch: false }, min: {}, fold: { 'h-log': true },
+    open: { torba: false, set: false, loot: false, help: false, watch: false }, min: {}, fold: { 'h-log': true, depostudy: true },
     history: [], rar: [], last: '',
     keys: { toggle: ['Alt', 'KeyT'], merge: ['Alt', 'KeyQ'], find: ['Alt', 'KeyF'] },
   };
@@ -149,6 +149,14 @@
             <li>Skrypt przenosi przedmioty po jednym, wyłącznie na wolne miejsca, i po każdym kroku sprawdza, czy przedmiot trafił na miejsce. Przy pierwszym niepowodzeniu przerywa. Potrzebne jest co najmniej <b>1 wolne miejsce</b> w torbie.</li>
             <li>Kliknięcie dowolnego przycisku sortowania w trakcie – zatrzymuje. Nic nie jest łączone, usuwane ani wyrzucane.</li>
           </ul>`) +
+        sec('h-depo', 'Depozyt',
+          `<ul>
+            <li><b>⛓ Połącz identyczne w depozycie</b> (okno 🧰 Depozyt) łączy takie same stosy <b>na otwartej stronie</b> depozytu – tylko te przedmioty, które widać na ekranie.</li>
+            <li>W depozycie gra nie łączy stosów, więc skrypt dla każdego przedmiotu po kolei: bierze jego niepełne stosy do torby, łączy je do limitu i odkłada na ich dawne miejsca w depozycie. Pełne stosy zostają nietknięte.</li>
+            <li>Potrzeba tylu wolnych miejsc w torbach, ile stosów ma najliczniejszy przedmiot – jeśli brakuje, skrypt mówi ile i nic nie robi. Branie i odkładanie w depozycie jest darmowe.</li>
+            <li>Każdy krok jest sprawdzany. Przy błędzie skrypt przerywa i odkłada stosy z powrotem do depozytu; jeśli coś zostanie w torbie, wypisze co. Ponowne kliknięcie zatrzymuje po bieżącym przedmiocie.</li>
+            <li>Sekcja <b>Badanie depozytu</b> (Zbadaj, Nagrywaj, Kopiuj) tylko czyta i zapisuje – przydaje się, gdy coś nie działa.</li>
+          </ul>`) +
         sec('h-search', 'Szukanie przedmiotów',
           `<ul>
             <li><b>Szukaj</b> (lub Alt+F, potem Enter) przeszukuje <b>wszystkie torby</b> i pokazuje, gdzie leży przedmiot, np. „Torba 1 (4 szt.) i Torba 2 (2 szt.)”.</li>
@@ -198,19 +206,21 @@
           </ul>`) +
         sec('h-soon', 'Jeszcze niedostępne',
           `<ul>
-            <li><b>Łączenie stosów w depozycie</b> jest w przygotowaniu. Okno <b>🧰 Depozyt</b> ma na razie tylko narzędzia do zbadania depozytu: <b>Zbadaj depozyt</b> (co gra wie o przedmiotach depozytu) i <b>Nagrywaj</b> (jakie komendy gra wysyła i jak zmieniają się przedmioty, gdy przesuwasz je ręcznie). Nic nie wysyłają do serwera. Wynik skopiuj przyciskiem 📋 i wklej autorowi.</li>
+            <li><b>Sortowanie depozytu</b> – na razie tylko łączenie stosów (okno 🧰 Depozyt).</li>
             <li>Zasada projektu: skrypt nie usuwa, nie sprzedaje i nie wyrzuca przedmiotów.</li>
           </ul>`) +
         sec('h-unsure', 'Co nie zostało potwierdzone w grze',
           `<ul>
             <li>Wykrywanie otwartej torby, częściowe łączenie stosów (gdy cały stos się nie mieści) i nazwy rzadkości w grze.</li>
             <li>Przeciąganie przedmiotu na ramkę, pobieranie grafiki przedmiotu oraz rozpoznawanie źródła dropów (okno łupu, skrzynki).</li>
+            <li>Depozyt: komendy depo&amp;get/put i łączenie w torbie sprawdzone tylko na stronie testowej (komendy z nagrania gry 20.10.2026); zachowanie przy kilku stronach depozytu – nieznane (skrypt działa tylko na przedmiotach widocznych na ekranie).</li>
             <li>Sortowanie: czy komenda przeniesienia na wolne miejsce działa w grze tak samo jak przy łączeniu stosów; kolejność „jakości” (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity) i to, że każdy przedmiot zajmuje 1 pole.</li>
             <li>Czy gra po upuszczeniu przedmiotu na okno dodatku na pewno odkłada go na miejsce (bez pytania o wyrzucenie) – sprawdzone tylko na stronie testowej.</li>
             <li>Jeśli któraś z tych rzeczy nie działa, użyj Diagnostyki i opisz, co się dzieje.</li>
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.18.0</b> – <b>łączenie identycznych stosów w depozycie</b> na otwartej stronie (przez torbę: weź → połącz → odłóż na miejsce, każdy krok sprawdzany); badanie depozytu przeniesione do zwijanej sekcji.</li>
             <li><b>0.17.0</b> – okno 🧰 Depozyt z narzędziami do zbadania depozytu (Zbadaj, Nagrywaj, Kopiuj wynik) – przygotowanie do łączenia stosów w depozycie.</li>
             <li><b>0.16.1</b> – logo „M” Mindaw zamiast plecaka; szybsze sortowanie i łączenie: skrypt nie czeka już do 4 s na odpowiedź gry, tylko co 50 ms sprawdza, czy przedmiot się przeniósł; przerwa między krokami 200 ms; wynik sortowania pokazuje czas.</li>
             <li><b>0.16.0</b> – działające <b>sortowanie</b> otwartej torby (po nazwie, typie, jakości); kwadraty zaznaczania zamienione na przełączniki (gra psuła zwykłe pola wyboru); 👁 Obserwowane i 🧰 Depozyt (w przygotowaniu) w docku; logo plecaka zamiast ▣.</li>
@@ -230,8 +240,12 @@
     {
       id: 'depo', icon: '🧰', title: 'Depozyt', w: 470,
       html:
-        sec('depo', 'Łączenie w depozycie – w przygotowaniu',
-          `<div class="note">Żeby zrobić łączenie stosów w depozycie, potrzebuję danych z gry. Te przyciski <b>nie wysyłają żadnych komend</b> – tylko czytają i zapisują, co się dzieje.</div>
+        sec('depo', 'Łączenie identycznych stosów (otwarta strona)',
+          `<button class="b main" id="mbt-depomerge" title="Łączy identyczne stosy na otwartej stronie depozytu przez torbę">⛓ &nbsp;Połącz identyczne w depozycie</button>
+           <div class="note">Działa tylko na <b>otwartej stronie</b> depozytu. W depozycie gra nie łączy stosów, więc skrypt po kolei dla każdego przedmiotu: bierze jego stosy do torby (potrzebne wolne miejsca), łączy je do limitu i odkłada na ich miejsca w depozycie. Każdy krok jest sprawdzany; przy błędzie przerywa i odkłada stosy z powrotem. Kliknij ponownie, żeby zatrzymać po bieżącym przedmiocie.</div>
+           <div class="out" id="mbt-depores"></div>`) +
+        sec('depostudy', 'Badanie depozytu (dla autora)',
+          `<div class="note">Te przyciski <b>nie wysyłają żadnych komend</b> – tylko czytają i zapisują, co się dzieje. Przydają się, gdy coś w depozycie nie działa.</div>
            <ol class="steps">
              <li>Otwórz depozyt w grze (strona 1) i kliknij <b>🔍 Zbadaj depozyt</b>.</li>
              <li>Kliknij <b>⏺ Nagrywaj</b> i zrób ręcznie, na tanich przedmiotach: (a) przeciągnij stos na taki sam stos w depozycie, (b) przenieś przedmiot na wolne miejsce w depozycie, (c) przenieś przedmiot z depozytu do torby i z powrotem, (d) przełącz stronę depozytu na 2 i z powrotem na 1. Potem <b>⏹ Zatrzymaj</b>.</li>
@@ -588,11 +602,12 @@
   const RAR = { common: 'Pospolity', unique: 'Unikat', heroic: 'Heroiczny', upgraded: 'Ulepszony', legendary: 'Legendarny', artefact: 'Artefakt', none: 'Inne' };
   const RAR_ORDER = Object.keys(RAR);
   const stats = it => (it && it._cachedStats) || {};
-  const fetchRaw = () => {
+  // loc 'g' = ekwipunek i torby, 'd' = depozyt (potwierdzone diagnostyką 10.2026)
+  const fetchRaw = (loc = 'g') => {
     const E = window.Engine;
     try {
       if (E && E.items && typeof E.items.fetchLocationItems === 'function') {
-        const l = E.items.fetchLocationItems('g');
+        const l = E.items.fetchLocationItems(loc);
         return Array.isArray(l) ? l : Object.values(l || {});
       }
     } catch {}
@@ -624,7 +639,7 @@
     const m = new RegExp('(?:^|;)' + key + '=(\\d+)').exec(raw || '');
     return m ? +m[1] : 0;
   };
-  const readItems = () => fetchRaw().map(it => ({
+  const readItems = (loc = 'g') => fetchRaw(loc).map(it => ({
     id: String(it.id), name: nameOf(it), tpl: it.tpl, st: Number(it.st), x: Number(it.x), y: Number(it.y),
     amount: amountOf(it), stackable: stackable(it), stat: String(it.stat || ''), rar: rarOf(it),
     cl: Number(it.cl) || 0, cap: statNum(it, 'capacity', it.stat) || Infinity, bagcap: statNum(it, 'bag', it.stat), ref: it,
@@ -1329,6 +1344,106 @@
     $('#mbt-deponote').textContent = ok ? 'Skopiowano – wklej mi to w rozmowie.' : 'Zaznacz tekst poniżej i skopiuj ręcznie (Ctrl+C).';
   }
 
+  /* ---------- depozyt: łączenie identycznych stosów na otwartej stronie (przez torbę) ----------
+     Komendy z nagrania użytkownika (10.2026): depo&get=ID&x&y (depozyt → torba), depo&put=ID&x&y (torba → depozyt).
+     W depozycie gra nie łączy stosów, więc łączymy w torbie komendą moveitem i odkładamy na pierwotne miejsca. */
+  const dsay = t => { const o = $('#mbt-depores'); o.style.display = 'block'; o.textContent = t; };
+  const depoOpen = () => [...document.querySelectorAll('.depo')].some(n => !root.contains(n) && n.getBoundingClientRect().width > 100);
+  // grupy: niepełne, identyczne stosy z limitem, widoczne na otwartej stronie (co najmniej 2)
+  function depoGroups() {
+    const vis = visibleIds(), by = {};
+    readItems('d').filter(i => vis.has(i.id) && i.stackable && Number.isFinite(i.cap) && i.cap > 1 && i.amount < i.cap)
+      .forEach(i => (by[keyOf(i)] = by[keyOf(i)] || []).push(i));
+    return Object.values(by).filter(g => g.length > 1).sort((a, b) => a[0].name.localeCompare(b[0].name, 'pl'));
+  }
+  // kroki łączenia: największy niepełny stos dobiera od najmniejszych (jak w torbie)
+  function stackSteps(list) {
+    const st = list.map(s => ({ id: s.id, amount: s.amount, cap: s.cap })), steps = [];
+    for (let guard = 0; guard < 200; guard++) {
+      const open = st.filter(s => s.amount > 0 && s.amount < s.cap).sort((a, b) => b.amount - a.amount);
+      if (open.length < 2) break;
+      const dst = open[0], src = open[open.length - 1], move = Math.min(src.amount, dst.cap - dst.amount);
+      steps.push({ src: src.id, dst: dst.id });
+      dst.amount += move; src.amount -= move;
+    }
+    return { steps, after: st.filter(s => s.amount > 0).map(s => s.amount).sort((a, b) => b - a) };
+  }
+  function freeBagCells() {
+    const { items, L } = snap(), used = new Set(items.filter(i => i.st === 0).map(i => i.x + ',' + i.y)), out = [];
+    L.forEach(b => {
+      for (let j = 0; j < b.cap; j++) { const x = j % COLS, y = b.from + Math.floor(j / COLS); if (!used.has(x + ',' + y)) out.push([x, y]); }
+    });
+    return out;
+  }
+  const locate = id => {
+    for (const l of ['g', 'd']) { const it = readItems(l).find(i => i.id === id); if (it) return { l, it }; }
+    return null;
+  };
+  async function waitFor(fn, ms = 3000) {
+    for (let t = 0; t < ms; t += 50) { await sleep(50); const r = fn(); if (r) return r; }
+    return null;
+  }
+  let depoBusy = false, depoStop = false;
+  async function depoMerge() {
+    if (busy) { if (depoBusy) { depoStop = true; dsay('Zatrzymam po bieżącym przedmiocie…'); } else dsay('Trwa inna akcja…'); return; }
+    if (!depoOpen()) return dsay('Otwórz depozyt w grze – na stronie, którą chcesz uporządkować.');
+    const groups = depoGroups();
+    if (!groups.length) return dsay('Na otwartej stronie depozytu nie ma czego łączyć.');
+    const need = Math.max(...groups.map(g => g.length)), free = freeBagCells().length;
+    if (free < need) return dsay(`Potrzeba ${need} wolnych miejsc w torbach (masz ${free}). Zwolnij miejsce i kliknij ponownie.`);
+    busy = depoBusy = true; depoStop = false;
+    const t0 = Date.now(), log = [], all = new Set();
+    let done = 0, err = '';
+    try {
+      for (const g of groups) {
+        if (depoStop) { err = 'Zatrzymano na Twoje kliknięcie.'; break; }
+        const name = g[0].name, before = g.map(i => i.amount).sort((a, b) => b - a);
+        const slots = g.map(i => [i.x, i.y]).sort((a, b) => a[1] - b[1] || a[0] - b[0]), taken = [];
+        dsay(`Łączę „${name}” (${done + 1} z ${groups.length})…\n${log.join('\n')}`);
+        // 1) z depozytu do torby, każdy stos na wolne miejsce
+        for (const i of g) {
+          const cell = freeBagCells()[0];
+          if (!cell) { err = 'brak wolnego miejsca w torbie'; break; }
+          send(`depo&get=${i.id}&x=${cell[0]}&y=${cell[1]}`);
+          const r = await waitFor(() => { const f = locate(i.id); return f && f.l === 'g' && f.it.x === cell[0] && f.it.y === cell[1] ? f : null; });
+          if (!r) { err = 'gra nie przeniosła stosu do torby'; break; }
+          taken.push(i.id); all.add(i.id);
+          if (r.it.amount !== i.amount) { err = 'ilość w stosie zmieniła się przy przenoszeniu'; break; }
+          await sleep(200);
+        }
+        // 2) łączenie w torbie
+        if (!err) {
+          for (const s of stackSteps(g).steps) {
+            const d0 = locate(s.dst), s0 = locate(s.src);
+            if (!d0 || !s0 || d0.l !== 'g' || s0.l !== 'g') { err = 'stos zniknął z torby'; break; }
+            send(`moveitem&st=0&id=${s.src}&x=${d0.it.x}&y=${d0.it.y}`);
+            if (!(await waitFor(() => { const d = locate(s.dst); return d && d.it.amount > d0.it.amount ? d : null; }))) { err = 'gra nie połączyła stosów w torbie'; break; }
+            await sleep(200);
+          }
+        }
+        // 3) z powrotem do depozytu, na pierwotne miejsca – także po błędzie, żeby nic nie zostało w torbie
+        const back = taken.filter(id => { const f = locate(id); return f && f.l === 'g'; });
+        for (let n = 0; n < back.length; n++) {
+          const id = back[n], [x, y] = slots[n];
+          if (readItems('d').some(i => i.x === x && i.y === y)) { err = (err ? err + '; ' : '') + `miejsce ${x},${y} w depozycie jest zajęte`; break; }
+          send(`depo&put=${id}&x=${x}&y=${y}`);
+          if (!(await waitFor(() => { const f = locate(id); return f && f.l === 'd' && f.it.x === x && f.it.y === y ? f : null; }))) {
+            err = (err ? err + '; ' : '') + 'gra nie odłożyła stosu do depozytu'; break;
+          }
+          await sleep(200);
+        }
+        const after = readItems('d').filter(i => taken.includes(i.id)).map(i => i.amount).sort((a, b) => b - a);
+        log.push(`• ${name}: ${before.join(', ')} → ${after.join(', ') || '–'}`);
+        if (err) { err = `„${name}”: ${err} – przerywam.`; break; }
+        done++;
+      }
+    } finally { busy = depoBusy = false; }
+    const left = readItems('g').filter(i => all.has(i.id));
+    dsay(`Depozyt: połączono ${done} z ${groups.length} przedmiotów (${((Date.now() - t0) / 1000).toFixed(1)} s)\n` + log.join('\n') +
+      (err ? '\n\n' + err : '') +
+      (left.length ? `\n\nW torbie zostało z depozytu: ${left.map(i => `${i.name} ×${i.amount}`).join(', ')} – odłóż je ręcznie do depozytu.` : ''));
+  }
+
   /* ---------- diagnostyka ---------- */
   function diag() {
     const { items, L } = snap(), d = detectBag(items, L);
@@ -1371,6 +1486,7 @@
   $('#mbt-depostudy').onclick = depoStudy;
   $('#mbt-deporec').onclick = depoRec;
   $('#mbt-depocopy').onclick = depoCopy;
+  $('#mbt-depomerge').onclick = depoMerge;
   $('#mbt-merge').onclick = merge;
   $('#mbt-lootclear').onclick = () => {
     if (!confirm('Wyczyścić dziennik zdobyczy?')) return;
