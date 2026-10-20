@@ -12,6 +12,9 @@ Zmiana zatwierdzona na `main` działa po odświeżeniu gry. Plik musi pozostać 
 
 ## Zasady obowiązkowe
 
+0. **Tryb pracy (decyzja użytkownika, 10.2026):** nie pytać o zgodę na scalenie – po skończeniu zmiany od razu ją
+   scalić na `main` (gałąź + PR + scalenie), żeby działała w grze. Opisy PR i odpowiedzi krótkie.
+
 1. **Nigdy nie usuwać, nie sprzedawać i nie wyrzucać przedmiotów.** Żadnych funkcji tego typu
    (przycisk „Usuń zaznaczone (Soon)” zostaje nieaktywny).
 2. **Każda zmiana w skrypcie = aktualizacja okna „Funkcje”** (okno `help` w tablicy `WINS`):
