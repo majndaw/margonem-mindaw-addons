@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.15.0** (20.10.2026).
+Aktualna wersja: **0.16.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -22,10 +22,11 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 
 1. **Nigdy nie usuwać, nie sprzedawać i nie wyrzucać przedmiotów.** Żadnych funkcji tego typu
    (przycisk „Usuń zaznaczone” został usunięty w 0.15.0 – nie przywracać).
-   Nie dodawać nieaktywnych przycisków „Wkrótce” ani opcji bez widocznego efektu (prośba użytkownika, 0.15.0).
+   Nie dodawać nieaktywnych przycisków ani opcji bez widocznego efektu (prośba użytkownika, 0.15.0). Wyjątek:
+   🧰 Depozyt w docku (po kliknięciu napis „w przygotowaniu”), bo będzie robiony.
 2. **Każda zmiana w skrypcie = aktualizacja okna „Funkcje”** (okno `help` w tablicy `WINS`):
    - popraw lub dopisz opis w odpowiedniej sekcji (`h-start`, `h-merge`, `h-search`, `h-watch`, `h-loot`,
-     `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
+     `h-sort`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
    - dopisz wpis na górze sekcji **Historia zmian** (`h-log`),
    - podbij wersję w **dwóch** miejscach: `// @version` w nagłówku i `const VER`.
 3. **Informacje o grze sprawdzaj pod kątem aktualności** – gra często się zmienia, stare wpisy z forum bywają
@@ -51,6 +52,12 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 - **`place()` / `apply()` / `view()` / `arrange()`:** pozycje, wygląd, widoczność, układy okien.
 - **Dane gry:** `readItems()` → `Engine.items.fetchLocationItems('g')`; `snap()` zwraca przedmioty z numerem torby.
 - **Torby:** `layout()`, `detectBag()` (najpierw widoczne węzły `.item.item-id-*`, potem aktywna zakładka w `.bags-navigation`).
+- **Przełączniki:** `chk(opt, napis)` tworzy przycisk `.tg[data-tg=opt]` (stan w `S[opt]`, malowanie `paintToggles()`).
+  **Nie używać `<input type="checkbox">`** – gra anuluje domyślne działanie kliknięć, pola wyboru „migały” i nie działały.
+  Przyciski z rysunkiem w środku (logo) obsługiwać przez `closest('[data-…]')`, nie `e.target.dataset`.
+- **Sortowanie:** `sortPlan()` (czysta funkcja: miejsce j dostaje j-ty przedmiot, przeniesienia tylko na wolne pola,
+  ≤ 2 ruchy na przedmiot, wymaga 1 wolnego pola) i `sortBag()` (komenda `moveitem&st=0&id&x&y`, `waitPos()` po każdym
+  kroku, przerwanie przy pierwszym błędzie, przerwa 300 ms, zatrzymanie kolejnym kliknięciem). Test: 6000 losowych toreb.
 - **Szukanie:** `find()` (bez polskich znaków przez `norm()`, kilka słów, historia, filtr rzadkości), `dups()`.
 - **Łączenie:** `buildPlan()` (największy niepełny stos dobiera od najmniejszych do limitu `capacity`)
   i `merge()` (komenda `moveitem&st=0&id=…&x=…&y=…`, kontrola `waitGrow()` po każdym kroku).
@@ -139,7 +146,6 @@ Wyniki wklejone przez użytkownika: przed użyciem usuń z nich wszystko, co wyg
 ## Odłożone pomysły (wrócić, gdy użytkownik zapyta o pomysły)
 
 - Kompaktowanie luk w torbie; zebranie jednego typu przedmiotów w jednej torbie.
-- Sortowanie po nazwie / typie / jakości (nieaktywne przyciski usunięte w 0.15.0 – dodać dopiero działające).
 - Auto-łączenie po zdobyciu przedmiotu (tylko jako opcja do włączenia).
 - Podświetlanie przedmiotu na siatce po kliknięciu wyniku szukania.
 - Filtr po typie przedmiotu (`itemTypeName`), ulubione/ochrona przed łączeniem, statystyki toreb,
