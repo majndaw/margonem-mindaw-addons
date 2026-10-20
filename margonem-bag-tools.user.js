@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.19.0
+// @version      0.20.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.19.0';
+  const VER = '0.20.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -29,7 +29,7 @@
   };
   const def = {
     sv: 2, alpha: 70, scale: 80, accent: 0, theme: 'ciemny', compact: false, font: 14, dock: false,
-    showCount: true, verified: false, lootToast: true, lootLoose: false,
+    showCount: true, verified: false, lootToast: true, lootLoose: false, hideOthers: false,
     watch: [], watchShow: true, watchCrit: 50, watchRemind: 0,
     pos: { dock: [20, 100], torba: [162, 100], set: [733, 100], loot: [300, 140], help: [350, 120], watch: [1125, 100], depo: [400, 140] },
     open: { torba: false, set: false, loot: false, help: false, watch: false }, min: {}, fold: { 'h-log': true, depostudy: true },
@@ -155,7 +155,7 @@
             <li>W depozycie gra nie łączy stosów, więc skrypt dla każdego przedmiotu po kolei: bierze jego niepełne stosy do torby, łączy je do limitu i odkłada na ich dawne miejsca w depozycie. Pełne stosy zostają nietknięte.</li>
             <li>Potrzeba tylu wolnych miejsc w torbach, ile stosów ma najliczniejszy przedmiot – jeśli brakuje, skrypt mówi ile i nic nie robi. Branie i odkładanie w depozycie jest darmowe.</li>
             <li>Każdy krok jest sprawdzany. Przy błędzie skrypt przerywa i odkłada stosy z powrotem do depozytu; jeśli coś zostanie w torbie, wypisze co. Ponowne kliknięcie zatrzymuje po bieżącym przedmiocie.</li>
-            <li><b>Sortowanie depozytu</b> – przyciski Po nazwie / Po typie / Po jakości działają jak w torbie, ale na otwartej stronie depozytu (14 kolumn). Przedmioty są przenoszone w obrębie depozytu, po jednym, każdy krok sprawdzany; potrzebne 1 wolne miejsce na stronie.</li>
+            <li><b>Sortowanie depozytu</b> – przycisk <b>★ Sortuj po jakości</b> układa otwartą stronę depozytu od najrzadszych (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity), a w obrębie jakości po nazwie. Przedmioty są przenoszone w obrębie depozytu, po jednym, każdy krok sprawdzany; potrzebne 1 wolne miejsce na stronie.</li>
             <li>Sekcja <b>Badanie depozytu</b> (Zbadaj, Nagrywaj, Kopiuj) tylko czyta i zapisuje – przydaje się, gdy coś nie działa.</li>
           </ul>`) +
         sec('h-search', 'Szukanie przedmiotów',
@@ -182,6 +182,12 @@
             <li>Licznik <b>„Dziś”</b> liczy od 00:00. Poniżej jest podsumowanie ostatnich 7 dni i lista ostatnich dropów z nazwą postaci.</li>
             <li>Źródło przedmiotu ustalane jest z otwartego okna łupu, otwarcia skrzynki i obserwowanych komend gry. <b>Tryb ścisły</b> (domyślny) liczy tylko potwierdzone dropy; <b>tryb luźny</b> liczy też te o nieustalonym źródle.</li>
             <li>Dane są wspólne dla postaci na jednym świecie (na innych światach dziennik jest osobny). Opcjonalnie pokazuje napis na środku ekranu po dropie.</li>
+          </ul>`) +
+        sec('h-others', 'Ukrywanie graczy',
+          `<ul>
+            <li>Przycisk <b>👥 Gracze</b> w docku włącza i wyłącza ukrywanie innych graczy na mapie. Pod napisem widać stan: <b>ukryci</b> / <b>widoczni</b>. Ustawienie jest zapamiętywane.</li>
+            <li>Działa jak skrypt „usuwacz innych”: dane o innych graczach przysłane przez serwer są pomijane – tylko u Ciebie, nic nie jest wysyłane do gry.</li>
+            <li>Gracze już widoczni znikną (albo po wyłączeniu – pojawią się) po <b>zmianie mapy lub odświeżeniu</b> gry.</li>
           </ul>`) +
         sec('h-keys', 'Skróty klawiszowe',
           `<ul>
@@ -215,6 +221,7 @@
             <li>Wykrywanie otwartej torby, częściowe łączenie stosów (gdy cały stos się nie mieści) i nazwy rzadkości w grze.</li>
             <li>Przeciąganie przedmiotu na ramkę, pobieranie grafiki przedmiotu oraz rozpoznawanie źródła dropów (okno łupu, skrzynki).</li>
             <li>Depozyt: komendy depo&amp;get/put i łączenie w torbie sprawdzone tylko na stronie testowej (komendy z nagrania gry 20.10.2026); zachowanie przy kilku stronach depozytu – nieznane (skrypt działa tylko na przedmiotach widocznych na ekranie).</li>
+            <li>Ukrywanie graczy: czy gracze widoczni w chwili włączenia znikają od razu, czy dopiero po zmianie mapy (skrypt zakłada to drugie).</li>
             <li>Sortowanie depozytu: 8 rzędów na stronie (wynika z licznika wolnych miejsc 89 + 23 przedmioty = 112) i numeracja pól na kolejnych stronach – niepotwierdzone; przy nietypowym układzie skrypt odmawia sortowania.</li>
             <li>Sortowanie: czy komenda przeniesienia na wolne miejsce działa w grze tak samo jak przy łączeniu stosów; kolejność „jakości” (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity) i to, że każdy przedmiot zajmuje 1 pole.</li>
             <li>Czy gra po upuszczeniu przedmiotu na okno dodatku na pewno odkłada go na miejsce (bez pytania o wyrzucenie) – sprawdzone tylko na stronie testowej.</li>
@@ -222,6 +229,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.20.0</b> – <b>👥 Gracze</b> w docku: ukrywanie innych graczy (jak „usuwacz innych”); w depozycie zostało tylko sortowanie po jakości.</li>
             <li><b>0.19.0</b> – <b>sortowanie depozytu</b> (otwarta strona): po nazwie, typie i jakości, jak w torbie.</li>
             <li><b>0.18.0</b> – <b>łączenie identycznych stosów w depozycie</b> na otwartej stronie (przez torbę: weź → połącz → odłóż na miejsce, każdy krok sprawdzany); badanie depozytu przeniesione do zwijanej sekcji.</li>
             <li><b>0.17.0</b> – okno 🧰 Depozyt z narzędziami do zbadania depozytu (Zbadaj, Nagrywaj, Kopiuj wynik) – przygotowanie do łączenia stosów w depozycie.</li>
@@ -246,7 +254,7 @@
         sec('depo', 'Łączenie i sortowanie (otwarta strona)',
           `<button class="b main" id="mbt-depomerge" title="Łączy identyczne stosy na otwartej stronie depozytu przez torbę">⛓ &nbsp;Połącz identyczne w depozycie</button>
            <div class="note">Działa tylko na <b>otwartej stronie</b> depozytu. W depozycie gra nie łączy stosów, więc skrypt po kolei dla każdego przedmiotu: bierze jego stosy do torby (potrzebne wolne miejsca), łączy je do limitu i odkłada na ich miejsca w depozycie. Każdy krok jest sprawdzany; przy błędzie przerywa i odkłada stosy z powrotem. Kliknij ponownie, żeby zatrzymać po bieżącym przedmiocie.</div>
-           <div class="r"><button class="b" data-dsort="name" title="Alfabetycznie">A↓Z Po nazwie</button><button class="b" data-dsort="type" title="Według rodzaju przedmiotu">Po typie</button><button class="b" data-dsort="qual" title="Od najrzadszych">★ Po jakości</button></div>
+           <div class="r"><button class="b" data-dsort="qual" title="Od najrzadszych: artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity">★ Sortuj po jakości</button></div>
            <div class="note">Sortowanie układa przedmioty <b>otwartej strony</b> od lewego górnego rogu, bez luk – po jednym, tylko na wolne miejsca (potrzebne 1 wolne miejsce na stronie). Kliknięcie dowolnego przycisku sortowania w trakcie zatrzymuje.</div>
            <div class="out" id="mbt-depores"></div>`) +
         sec('depostudy', 'Badanie depozytu (dla autora)',
@@ -368,6 +376,7 @@
   #mbt-root .launcher .logo{display:flex;align-items:center;padding:0 4px}
   #mbt-root .launcher .logo svg{width:30px;height:30px;display:block}
   #mbt-root .launcher .logo:hover svg{filter:drop-shadow(0 0 4px var(--ac))}
+  #mbt-root .di small{display:block;font-size:.72em;opacity:.75}
   #mbt-root .steps{margin:8px 0 0 18px;padding:0;font-size:.93em;line-height:1.45;color:#cfd9d6}
   #mbt-root .steps li{margin:5px 0}
   #mbt-root .steps b{color:var(--ac)}
@@ -404,6 +413,7 @@
   <div class="dock" id="mbt-dock">
     <div class="dh">${gripHTML('dock')}<button class="ib" data-act="closeAll" title="Zamknij wszystko">×</button></div>
     ${WINS.filter(w => w.dock !== false).map(w => `<button class="di" data-win="${w.id}" title="${w.title}"><span class="ic">${w.icon}</span>${w.title}</button>`).join('')}
+    <button class="di" data-act="others" title="Ukrywa innych graczy na mapie (tylko u Ciebie)"><span class="ic">👥</span>Gracze<small id="mbt-othst"></small></button>
   </div>
 
   ${WINS.map(w => `
@@ -474,6 +484,8 @@
     el.dock.classList.toggle('show', dockOpen);
     el.icon.classList.toggle('show', !dockOpen);
     S.dock = dockOpen;
+    $('[data-act=others]').classList.toggle('on', !!S.hideOthers);
+    $('#mbt-othst').textContent = S.hideOthers ? 'ukryci' : 'widoczni';
     $$('[data-win]').forEach(b => b.classList.toggle('on', !!S.open[b.dataset.win]));
     paintToggles();
     place();
@@ -517,6 +529,14 @@
     const act = (t.closest('[data-act]') || {}).dataset || {};   // closest: klik trafia też w rysunek logo
     if (act.act === 'closeAll') { dockOpen = false; WIN_IDS.forEach(id => { S.open[id] = false; }); view(); }
     if (act.act === 'openDock') { dockOpen = true; view(); }
+    if (act.act === 'others') {
+      S.hideOthers = window.__mbtHideOthers = !S.hideOthers;
+      const ok = hookOthers();
+      view();
+      toast(!ok ? 'Nie udało się podpiąć – odśwież grę' : S.hideOthers
+        ? '👥 Gracze ukryci – znikną po zmianie mapy lub odświeżeniu'
+        : '👥 Gracze widoczni – pojawią się po zmianie mapy lub odświeżeniu', ok ? OK : RED);
+    }
     if (t.dataset.c) { S.accent = +t.dataset.c; apply(); save(); }
     const th = t.closest('[data-theme]');
     if (th) { S.theme = th.dataset.theme; apply(); save(); }
@@ -1471,6 +1491,26 @@
       (left.length ? `\n\nW torbie zostało z depozytu: ${left.map(i => `${i.name} ×${i.amount}`).join(', ')} – odłóż je ręcznie do depozytu.` : ''));
   }
 
+  /* ---------- ukrywanie innych graczy (wg skryptu użytkownika „usuwacz innych”, 10.2026) ----------
+     Serwer przysyła innych graczy w polu `other`; przy włączonej opcji czyścimy je, zanim gra je przetworzy.
+     Tylko wygląd u użytkownika – nic nie jest wysyłane do serwera. Flaga na window, żeby nowa wersja skryptu
+     sterowała też nakładką założoną przez starszą. */
+  function hookOthers() {
+    try {
+      const C = window.Engine && window.Engine.communication;
+      if (!C || typeof C.parseJSON !== 'function') return false;
+      if (C.parseJSON.__mbt) return true;
+      const orig = C.parseJSON;
+      const wrap = function (e) {
+        try { if (window.__mbtHideOthers && e && typeof e === 'object' && Object.prototype.hasOwnProperty.call(e, 'other')) e.other = {}; } catch {}
+        return orig.apply(this, arguments);
+      };
+      wrap.__mbt = 1;
+      C.parseJSON = wrap;
+      return true;
+    } catch { return false; }
+  }
+
   /* ---------- diagnostyka ---------- */
   function diag() {
     const { items, L } = snap(), d = detectBag(items, L);
@@ -1546,8 +1586,9 @@
     S.alpha = num(o.alpha, 35, 100, S.alpha); S.scale = num(o.scale, 40, 130, S.scale); S.font = num(o.font, 11, 18, S.font);
     S.accent = Math.floor(num(o.accent, 0, COLORS.length - 1, S.accent));
     if (THEMES[o.theme]) S.theme = o.theme;
-    ['compact', 'showCount', 'lootToast', 'lootLoose', 'watchShow']
+    ['compact', 'showCount', 'lootToast', 'lootLoose', 'watchShow', 'hideOthers']
       .forEach(k => { if (typeof o[k] === 'boolean') S[k] = o[k]; });
+    window.__mbtHideOthers = !!S.hideOthers;
     S.watchCrit = Math.floor(num(o.watchCrit, 1, 99, S.watchCrit)); S.watchRemind = Math.floor(num(o.watchRemind, 0, 3600, S.watchRemind));
     if (o.pos && typeof o.pos === 'object') {
       for (const k of Object.keys(def.pos)) { const p = o.pos[k]; if (Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) S.pos[k] = [p[0], p[1]]; }
@@ -1644,6 +1685,8 @@
   /* ---------- start ---------- */
   renderKeys(); renderHist(); renderWList(); renderLoot();
   hookG(); setInterval(hookG, 10000);
+  window.__mbtHideOthers = !!S.hideOthers;
+  hookOthers(); setInterval(hookOthers, 2000);
   apply(); view();
   if (S.last) say('Ostatni wynik szukania:\n' + S.last);
 })();
