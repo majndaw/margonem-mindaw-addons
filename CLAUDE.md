@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.21.0** (20.10.2026).
+Aktualna wersja: **0.21.1** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -175,6 +175,14 @@ Implementować dopiero po wyniku „Kopiuj wynik” z gry. Starsze fragmenty kon
 ```
 
 Wyniki wklejone przez użytkownika: przed użyciem usuń z nich wszystko, co wygląda na dane logowania lub klucze sesji.
+
+## Przycisk Mindaw w pasku przycisków gry (prośba użytkownika, 21.10.2026)
+
+Użytkownik chce przycisk dodatku w pasku przycisków gry (jak questy, mapa), przesuwany jak przyciski gry (inny róg itp.).
+Brak publicznego opisu API (wyszukiwanie 21.10.2026 nic nie dało; wyszukiwanie kodu GitHub zablokowane w sesji).
+0.21.1: Ustawienia → „Przycisk w pasku gry – badanie” (`uiStudy()`, tylko odczyt: klucze `Engine` z widget/button/…,
+elementy z „widget” w klasie, ich położenie i rodzice, localStorage z widget/pos/layout, ostatnie komendy). Użytkownik
+robi badanie przed i po przesunięciu przycisku gry. **Implementować dopiero po wyniku z gry.**
 
 ## Odłożone pomysły (wrócić, gdy użytkownik zapyta o pomysły)
 

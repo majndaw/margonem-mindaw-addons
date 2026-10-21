@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.21.0
+// @version      0.21.1
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.21.0';
+  const VER = '0.21.1';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -178,6 +178,16 @@
            <div class="note">${ic('info')}<span>Kliknij skrót i naciśnij 1, 2 lub 3 klawisze naraz. Esc – anuluj. Skrótów przeglądarki (np. Ctrl+W) nie da się przejąć.</span></div>
            <div class="note" id="mbt-keynote"></div>
            <button class="btn" id="mbt-keysreset">Przywróć domyślne skróty</button>`) +
+        sec('gamebtn', 'Przycisk w pasku gry – badanie',
+          `<div class="note">${ic('info')}<span>Przygotowanie do przycisku Mindaw w pasku przycisków gry (jak questy czy mapa), który da się przesuwać jak inne. Te przyciski <b>tylko czytają</b> – nic nie wysyłają do gry.</span></div>
+           <ol class="howto">
+             <li>Kliknij <b>Zbadaj</b>.</li>
+             <li>Przesuń w grze dowolny przycisk z paska (np. mapę) w inne miejsce lub róg, tak jak zwykle.</li>
+             <li>Kliknij <b>Zbadaj</b> jeszcze raz, potem <b>Kopiuj wynik</b> i wklej go autorowi.</li>
+           </ol>
+           <div class="row"><button class="btn grow" id="mbt-uistudy">${ic('search')}Zbadaj</button><button class="btn grow" id="mbt-uicopy">${ic('copy')}Kopiuj wynik</button></div>
+           <div class="note" id="mbt-uinote"></div>
+           <div class="out" id="mbt-uiout"></div>`) +
         sec('backup', 'Kopia ustawień',
           `<div class="row"><button class="btn grow" id="mbt-exp" title="Kopiuje ustawienia jako tekst">Eksportuj do schowka</button><button class="btn grow" id="mbt-imp" title="Wczytuje ustawienia z pola poniżej">Importuj z pola</button></div>
            <textarea class="s" id="mbt-io" rows="3" placeholder="Tu pojawi się wyeksportowany tekst. Do importu wklej tu kopię."></textarea>
@@ -262,6 +272,7 @@
           </ul>`) +
         sec('h-backup', 'Kopia ustawień',
           `<ul>
+            <li><b>Przycisk w pasku gry – badanie</b> (Ustawienia): tylko czyta, jak gra układa swoje przyciski (questy, mapa…) – przygotowanie do przycisku Mindaw, który będzie można przesuwać jak przyciski gry.</li>
             <li><b>Eksportuj do schowka</b> zamienia ustawienia (okna, skróty, obserwowane, historię) w tekst. <b>Importuj z pola</b> wczytuje taki tekst – przydatne przy nowej przeglądarce lub po reinstalacji.</li>
             <li>Dziennik zdobyczy nie jest częścią kopii ustawień.</li>
           </ul>`) +
@@ -288,6 +299,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.21.1</b> – Ustawienia: badanie paska przycisków gry (tylko odczyt) – przygotowanie do przycisku Mindaw w pasku gry.</li>
             <li><b>0.21.0</b> – <b>nowy wygląd</b>: jedno okno z paskiem zakładek (Torba, Depozyt, Obserwowane, Zdobycze, Ustawienia, Pomoc), ikony zamiast emoji, karty, czerwony pasek błędu na dole tylko przy błędzie, lista wyników szukania, postęp łączenia w depozycie, nowe małe okienko Obserwowane z paskami zapasu, nowe napisy na ekranie i ikona M po zamknięciu.</li>
             <li><b>0.20.0</b> – <b>👥 Gracze</b> w docku: ukrywanie innych graczy (jak „usuwacz innych”); w depozycie zostało tylko sortowanie po jakości.</li>
             <li><b>0.19.0</b> – <b>sortowanie depozytu</b> (otwarta strona): po nazwie, typie i jakości, jak w torbie.</li>
@@ -1706,6 +1718,47 @@
     } catch { return false; }
   }
 
+  /* ---------- badanie paska przycisków gry (tylko odczyt) – przygotowanie do własnego przycisku Mindaw ---------- */
+  const uiRuns = [];
+  function uiStudy() {
+    const L = [`— Badanie ${uiRuns.length + 1} · Bag Tools ${VER} · ${new Date().toLocaleTimeString('pl-PL')}`];
+    try {
+      const E = window.Engine || {};
+      L.push('Engine – klucze z widget/button/hud/interface/layout: ' + (Object.keys(E).filter(k => /widget|button|hud|interf|layout|panel|menu/i.test(k)).map(k => {
+        const v = E[k], keys = v && typeof v === 'object' ? Object.keys(v) : [];
+        const pr = v && typeof v === 'object' ? Object.getPrototypeOf(v) : null, own = pr && pr !== Object.prototype ? Object.getOwnPropertyNames(pr) : [];
+        const fns = v && typeof v === 'object' ? [...new Set([...keys, ...own])].filter(f => { try { return f !== 'constructor' && typeof v[f] === 'function'; } catch { return false; } }) : [];
+        return `${k}:${typeof v}{pola:${keys.filter(f => !fns.includes(f)).slice(0, 25).join(',')} | funkcje:${fns.slice(0, 40).join(',')}}`;
+      }).join('\n  ') || '-'));
+    } catch (e) { L.push('Engine: błąd ' + e.message); }
+    // elementy gry z „widget” w klasie (poza oknami dodatku): klasy, położenie, rozmiar
+    const els = [...document.querySelectorAll('[class*="widget" i]')].filter(n => !root.contains(n));
+    const cnt = {};
+    els.forEach(n => { const c = cls(n).split(/\s+/).filter(x => /widget/i.test(x)).join(' '); cnt[c] = (cnt[c] || 0) + 1; });
+    L.push('Klasy z „widget” (ile): ' + (Object.entries(cnt).slice(0, 40).map(([c, k]) => `${c}×${k}`).join(' ; ') || '-'));
+    const vis = els.filter(n => { const r = n.getBoundingClientRect(); return r.width > 10 && r.width < 120 && r.height > 10 && r.height < 120; }).slice(0, 25);
+    L.push('Małe widoczne elementy „widget” (przyciski?):');
+    vis.forEach(n => { const r = n.getBoundingClientRect(), p = n.parentElement;
+      L.push(`  ${n.tagName}.${cls(n).slice(0, 70)} @${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}×${Math.round(r.height)}` +
+        `${n.getAttribute('data-name') ? ' data-name=' + n.getAttribute('data-name') : ''}${n.getAttribute('tip-id') ? ' tip' : ''} | rodzic: ${p ? p.tagName + '.' + cls(p).slice(0, 60) : '-'}`); });
+    if (vis[0]) L.push('HTML pierwszego przycisku i rodzica: ' + (vis[0].parentElement || vis[0]).outerHTML.replace(/\s+/g, ' ').slice(0, 1500));
+    // ustawienia gry zapisane w przeglądarce, związane z położeniem przycisków
+    const ls = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/widget|button|pos|layout|hud/i.test(k) && !/^mbt-/.test(k)) ls.push(`${k} = ${String(localStorage.getItem(k)).slice(0, 300)}`); } } catch {}
+    L.push('localStorage (widget/pos/layout): ' + (ls.join('\n  ') || '-'));
+    L.push('Ostatnie komendy gry: ' + (cmds.slice(-10).map(c => c.c).join(' | ') || '-'));
+    uiRuns.push(L.join('\n'));
+    const o = $('#mbt-uiout'); o.style.display = 'block'; o.textContent = uiRuns.join('\n\n');
+    $('#mbt-uinote').textContent = uiRuns.length === 1 ? 'Teraz przesuń w grze dowolny przycisk z paska i kliknij Zbadaj jeszcze raz.' : 'Gotowe – kliknij Kopiuj wynik.';
+  }
+  async function uiCopy() {
+    const t = uiRuns.join('\n\n');
+    if (!t) return void ($('#mbt-uinote').textContent = 'Najpierw kliknij Zbadaj.');
+    let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; } catch {}
+    $('#mbt-uinote').textContent = ok ? 'Skopiowano – wklej to w rozmowie.' : 'Zaznacz tekst poniżej i skopiuj ręcznie (Ctrl+C).';
+  }
+
   /* ---------- diagnostyka ---------- */
   function diag() {
     const { items, L } = snap(), d = detectBag(items, L);
@@ -1748,6 +1801,8 @@
   $('#mbt-depostudy').onclick = depoStudy;
   $('#mbt-deporec').onclick = depoRec;
   $('#mbt-depocopy').onclick = depoCopy;
+  $('#mbt-uistudy').onclick = uiStudy;
+  $('#mbt-uicopy').onclick = uiCopy;
   $('#mbt-depomerge').onclick = depoMerge;
   $('#mbt-merge').onclick = merge;
   $('#mbt-lootclear').onclick = () => {
