@@ -193,9 +193,12 @@ Podświetlanie: `flash(ids)` / `highlight(name, loc)` – nakładka `.mbt-flash`
 
 - **Łączenie/sortowanie na wszystkich stronach depozytu** – potrzebne „Zbadaj depozyt” na koncie z kilkoma stronami
   (konto testowe ma 1 stronę): jak numerowane są pola kolejnych stron i jak przełączać strony.
-- **Chodzenie za strzałką questową przyciskiem** – Ustawienia → „Badanie gry” (klucze Engine/postaci z quest/arrow/
-  follow/path…, nagrywanie komend). Automatyczne wznawianie po przerwaniu **odrzucone** (łamie zasadę 4 – nic bez
-  kliknięcia; najbardziej ryzykowne dla konta). Zamiast tego: napis + dźwięk „śledzenie przerwane” i wznowienie skrótem.
+- **Chodzenie za strzałką questową + automatyczne wznawianie** – gra ma wbudowane chodzenie po kliknięciu strzałki
+  questowej, które czasem samo się przerywa. **Wyjątek od zasady 4 zaakceptowany przez użytkownika (21.10.2026):** skrypt
+  może ponownie „kliknąć” strzałkę, ale tylko gdy: użytkownik sam włączył tryb (przycisk/skrót), przerwanie nie wynika
+  z ruchu gracza (klawisze, klik na mapie), walki, rozmowy, dojścia do celu ani zmiany questa. Wznowienie po ~1–2 s,
+  z napisem; limit (np. > 3 wznowienia/min) → tryb się wyłącza + `errBar`. Implementować dopiero po wyniku
+  „Badanie gry” (Zbadaj → Nagrywaj → kliknięcie strzałki → przerwanie samoistne i ręczne → Zatrzymaj → Zbadaj).
 
 ## Przycisk Mindaw w pasku przycisków gry (prośba użytkownika, 21.10.2026)
 
