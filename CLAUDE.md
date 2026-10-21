@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.20.0** (20.10.2026).
+Aktualna wersja: **0.21.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -22,9 +22,8 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 
 1. **Nigdy nie usuwać, nie sprzedawać i nie wyrzucać przedmiotów.** Żadnych funkcji tego typu
    (przycisk „Usuń zaznaczone” został usunięty w 0.15.0 – nie przywracać).
-   Nie dodawać nieaktywnych przycisków ani opcji bez widocznego efektu (prośba użytkownika, 0.15.0). Wyjątek:
-   🧰 Depozyt w docku (po kliknięciu napis „w przygotowaniu”), bo będzie robiony.
-2. **Każda zmiana w skrypcie = aktualizacja okna „Funkcje”** (okno `help` w tablicy `WINS`):
+   Nie dodawać nieaktywnych przycisków ani opcji bez widocznego efektu (prośba użytkownika, 0.15.0).
+2. **Każda zmiana w skrypcie = aktualizacja zakładki „Pomoc”** (zakładka `help` w tablicy `TABS`):
    - popraw lub dopisz opis w odpowiedniej sekcji (`h-start`, `h-merge`, `h-search`, `h-watch`, `h-loot`,
      `h-sort`, `h-depo`, `h-others`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
    - dopisz wpis na górze sekcji **Historia zmian** (`h-log`),
@@ -35,8 +34,10 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 4. **Akcje wysyłające komendy do serwera** (np. łączenie stosów): spokojne tempo (odstępy 200–600 ms),
    sprawdzenie efektu po każdym kroku, przerwanie przy pierwszym niepowodzeniu, zakres ograniczony
    (otwarta torba / otwarta strona depozytu). Nic nie dzieje się bez kliknięcia lub skrótu użytkownika.
-5. **Nowe okna dodawaj przez tablicę `WINS`** – wtedy automatycznie dostają kropki do przesuwania (siatka 3×3),
-   przycisk w docku, zwijanie „–”, zamykanie „×” i własną zapamiętaną pozycję. Okna przesuwa się **tylko** kropkami.
+5. **Nowe funkcje dodawaj jako zakładkę w tablicy `TABS`** (od 0.21.0 jedno główne okno z paskiem ikon po lewej) –
+   dostaje przycisk na pasku i własną treść. Osobne okna (`WINS`: `main`, `watch`) tylko gdy naprawdę potrzebne.
+   Okna przesuwa się **tylko** kropkami. Wygląd wg projektu zaakceptowanego przez użytkownika (21.10.2026): karty,
+   ikony liniowe SVG (`ICONS`, `ic()`), **bez paska stanu** – na dole okna tylko czerwony pasek błędu (`errBar`).
 6. Po zmianach sprawdź składnię (`node --check margonem-bag-tools.user.js`), a logikę (np. planowanie łączenia)
    testuj w małych skryptach Node na sztucznych danych. W grze testuje użytkownik.
 
@@ -45,10 +46,15 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
 - **Przejmowanie starej wersji:** jeśli istnieje `#mbt-root` z inną wersją, jest usuwany razem ze stylami.
 - **Ustawienia:** obiekt `def` (domyślne) i `S` (aktualne), zapis w `localStorage` pod kluczem `mbt-settings-v6`.
   `sv` = wersja schematu ustawień (migracje). Dziennik zdobyczy osobno: `mbt-loot-v1`.
-- **`WINS`:** definicje okien: `torba`, `loot` (Zdobycze), `set` (Ustawienia), `help` (Funkcje), `watch`
-  (małe okienko obserwowanych, `mini: true`, `dock: false`). Pomocnicze: `sec()` (zwijana sekcja), `chk()`.
+- **Interfejs (0.21.0):** `TABS` – zakładki głównego okna: `torba`, `depo`, `watch` (zarządzanie obserwowanymi), `loot`,
+  `set`, `help`; `S.tab` = otwarta zakładka, pasek `[data-go]`, przycisk ukrywania graczy `[data-act=others]` na pasku.
+  `WINS` – okna: `main` (520 px) i `watch` (małe okienko, `mini`). Pozycje: `S.pos.main`, `S.pos.watch`, `S.pos.dock` (ikona
+  „M Mindaw” po zamknięciu). `sec()` = karta z tytułem (zwijana, `S.fold`), `chk()` = przełącznik, `ic(n)` = ikona SVG.
+  Pasek błędu: `errBar(tytuł, opis)` / `errHide()`; `say()`/`dsay()` same wykrywają błąd (`ERR_RE`) i pokazują pasek.
+  `busyUI()` zmienia przyciski sortowania/łączenia na „Zatrzymaj”. Wyniki szukania: `renderFind()` (lista, `S.lastFind`).
+  Karta torby: `updateNote()`; karta depozytu: `depoInfo()`; postęp łączenia w depozycie: `depoProg()`.
 - **CSS:** zmienne `--ac` (akcent), `--a` (przezroczystość), `--sc` (skala), `--fs` (czcionka), motywy
-  (`--bg`, `--ctl`, `--inp`, `--bd`), klasa `.compact`.
+  (`--bg`, `--card`, `--card2`, `--inp`, `--bd`, `--bd2`, `--rail`), klasa `.compact`. Schemat ustawień `sv: 3`.
 - **`place()` / `apply()` / `view()` / `arrange()`:** pozycje, wygląd, widoczność, układy okien.
 - **Dane gry:** `readItems()` → `Engine.items.fetchLocationItems('g')`; `snap()` zwraca przedmioty z numerem torby.
 - **Torby:** `layout()`, `detectBag()` (najpierw widoczne węzły `.item.item-id-*`, potem aktywna zakładka w `.bags-navigation`).
@@ -75,7 +81,7 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   i czcionki zapisują wartość na `change` (po puszczeniu) – na `input` okno zmieniało rozmiar pod kursorem i suwak skakał.
 - **Zdobycze:** `lootTick()`, `addLoot()`, `renderLoot()`; źródło dropu z sygnałów `sigTick()` (okna) i `noteCmd()`
   (obserwacja `_g` przez `hookG()`); tryb ścisły / luźny (`lootLoose`). Liczy heroiki, legendy, smocze runy.
-- **Ukrywanie graczy (0.20.0):** przycisk 👥 Gracze w docku (`data-act="others"`, `S.hideOthers`). `hookOthers()`
+- **Ukrywanie graczy (0.20.0):** ikona ludzi na pasku zakładek (`data-act="others"`, `S.hideOthers`). `hookOthers()`
   owija `Engine.communication.parseJSON` i czyści pole `other` (wg skryptu użytkownika „usuwacz innych”, 10.2026).
   Flaga `window.__mbtHideOthers` – nowa wersja skryptu steruje nakładką starszej. Tylko wygląd, bez komend.
   Niepotwierdzone: czy gracze już widoczni znikają od razu (zakładamy: po zmianie mapy / odświeżeniu).

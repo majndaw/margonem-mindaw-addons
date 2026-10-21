@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.20.0
+// @version      0.21.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.20.0';
+  const VER = '0.21.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -20,161 +20,220 @@
 
   /* ---------- ustawienia ---------- */
   const KEY = 'mbt-settings-v6';
-  const COLORS = ['#00e676', '#1e88e5', '#c62828', '#d2782f', '#8e30e0', '#ec4fb8', '#aab2b8'];
+  const COLORS = ['#2fd27a', '#3b82f6', '#e5484d', '#f08c3a', '#9b5cf0', '#ec4fb8', '#9aa4aa'];
   const THEMES = {
-    ciemny: { n: 'Ciemny', bg: '9,15,16', ctl: '#162021', inp: '#101819', bd: '#2f3d3e' },
-    czarny: { n: 'Czarny', bg: '0,0,0', ctl: '#0e0e0e', inp: '#080808', bd: '#2b2b2b' },
-    grafit: { n: 'Grafit', bg: '24,26,30', ctl: '#252a31', inp: '#1b1f24', bd: '#3b424b' },
-    granat: { n: 'Granat', bg: '10,16,34', ctl: '#14203f', inp: '#0d1630', bd: '#2c3c6e' },
+    ciemny: { n: 'Ciemny', bg: '14,19,21', card: '#151c1f', card2: '#1a2226', inp: '#0e1416', bd: '#263136', bd2: '#2f3c42', rail: '#11171a' },
+    czarny: { n: 'Czarny', bg: '6,6,7', card: '#101112', card2: '#161718', inp: '#0a0a0b', bd: '#232426', bd2: '#2e3033', rail: '#0b0b0c' },
+    grafit: { n: 'Grafit', bg: '26,28,32', card: '#23262b', card2: '#2a2e34', inp: '#1b1e22', bd: '#353a41', bd2: '#424851', rail: '#202327' },
+    granat: { n: 'Granat', bg: '12,18,36', card: '#141d36', card2: '#1a2442', inp: '#0d1428', bd: '#26335a', bd2: '#32416e', rail: '#0f1630' },
   };
   const def = {
-    sv: 2, alpha: 70, scale: 80, accent: 0, theme: 'ciemny', compact: false, font: 14, dock: false,
+    sv: 3, alpha: 94, scale: 80, accent: 0, theme: 'ciemny', compact: false, font: 14, dock: false,
     showCount: true, verified: false, lootToast: true, lootLoose: false, hideOthers: false,
     watch: [], watchShow: true, watchCrit: 50, watchRemind: 0,
-    pos: { dock: [20, 100], torba: [162, 100], set: [733, 100], loot: [300, 140], help: [350, 120], watch: [1125, 100], depo: [400, 140] },
-    open: { torba: false, set: false, loot: false, help: false, watch: false }, min: {}, fold: { 'h-log': true, depostudy: true },
-    history: [], rar: [], last: '',
+    pos: { dock: [20, 100], main: [20, 100], watch: [1125, 100] },
+    open: { watch: false }, min: {}, fold: { 'h-log': true, depostudy: true },
+    history: [], rar: [], lastFind: null, tab: 'torba', sortMode: 'qual',
     keys: { toggle: ['Alt', 'KeyT'], merge: ['Alt', 'KeyQ'], find: ['Alt', 'KeyF'] },
   };
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch {}
   const S = Object.assign({}, def, saved);
   if ((saved.sv || 0) < 2) { S.scale = def.scale; S.sv = 2; }       // nowy, mniejszy domyślny rozmiar
+  if ((saved.sv || 0) < 3) { S.alpha = Math.max(S.alpha, 90); S.sv = 3; }   // 0.21.0: nowy wygląd – mniej przezroczysty
+  if (!['qual', 'name', 'type'].includes(S.sortMode)) S.sortMode = 'qual';
   for (const k of ['pos', 'open', 'keys', 'min', 'fold']) S[k] = Object.assign({}, def[k], S[k] || {});
   if (!Array.isArray(S.history)) S.history = [];
   if (!Array.isArray(S.rar)) S.rar = [];
   S.watch = (Array.isArray(S.watch) ? S.watch : []).filter(w => w && typeof w.name === 'string');
   if (!THEMES[S.theme]) S.theme = 'ciemny';
   // opcje usunięte w 0.15.0 (pozycja jest zawsze zapamiętywana, dock wraca w stanie sprzed odświeżenia)
-  ['round', 'shadow', 'remember', 'onTop', 'minIcon', 'openStart', 'notify', 'sound', 'counter', 'hideAfter'].forEach(k => { delete S[k]; });
+  ['round', 'shadow', 'remember', 'onTop', 'minIcon', 'openStart', 'notify', 'sound', 'counter', 'hideAfter', 'last'].forEach(k => { delete S[k]; });
+  ['torba', 'set', 'loot', 'help', 'depo'].forEach(k => { delete S.pos[k]; delete S.open[k]; });   // okna sprzed 0.21.0
   const save = () => {
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
   };
 
-  /* ---------- definicje okien (każde nowe okno dostaje kropki do przesuwania) ---------- */
+  /* ---------- ikony, karty i zakładki głównego okna ---------- */
+  // karta z tytułem (klik w tytuł zwija – stan w S.fold)
   const sec = (id, title, inner) =>
     `<div class="sec" data-sec="${id}"><h4 data-fold="${id}"><span>${title}</span><i class="chev">▾</i></h4><div class="sc">${inner}</div></div>`;
   // własny przełącznik zamiast pola wyboru: gra anuluje domyślne działanie kliknięć, przez co kwadraty „migały” i wracały
   const chk = (opt, label) => `<button type="button" class="tg" data-tg="${opt}"><i></i><span>${label}</span></button>`;
+  const ICONS = {
+    bag: '<path d="M9 7V6a3 3 0 0 1 6 0v1"/><rect x="4" y="7" width="16" height="14" rx="3"/><path d="M4 12h16"/>',
+    depo: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5h.01"/>',
+    merge: '<path d="M6 3v6a6 6 0 0 0 6 6 6 6 0 0 1 6 6M18 3v6a6 6 0 0 1-3.5 5.5"/><path d="M15 6l3-3 3 3"/>',
+    sort: '<path d="M3 6h13M3 12h9M3 18h5M18 8v12M15 17l3 3 3-3"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+    load: '<path d="M12 3a9 9 0 1 0 9 9"/>',
+    dot: '<circle cx="12" cy="12" r="3"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+    min: '<path d="M5 12h14"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    warn: '<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5h.01"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  };
+  const ic = n => `<svg class="ic" viewBox="0 0 24 24">${ICONS[n]}</svg>`;
+  // logo Mindaw: geometryczne „M” w sześciokątnej tarczy z kryształem (kolor akcentu)
+  const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1.6 21 6.8v10.4l-9 5.2-9-5.2V6.8z" fill="currentColor" fill-opacity=".14" stroke-width="1.5"/><path d="M7 16.8V8.6l5 5.6 5-5.6v8.2" stroke-width="2.3"/><path d="M12 4.3l1.3 1.3L12 6.9l-1.3-1.3z" fill="currentColor" stroke-width="1"/></svg>';
+  const gripHTML = id => `<span class="grip" data-grip="${id}" title="Przeciągnij, aby przenieść">${'<i></i>'.repeat(9)}</span>`;
+  const wtBtn = (cls, lbl) => `<button class="${cls}" data-wtarget="1" data-lbl="${lbl}" title="Kliknij, a potem kliknij przedmiot w torbie (nie zostanie użyty)">${ic('target')}<span class="wtl">${lbl}</span></button>`;
 
-  const WINS = [
+  // zakładki głównego okna (pasek ikon po lewej); nowe funkcje dodawaj jako zakładkę
+  const TABS = [
     {
-      id: 'torba', icon: '👜', title: 'Torba', w: 555,
+      id: 'torba', icon: 'bag', title: 'Torba',
       html:
-        sec('merge', 'Łączenie przedmiotów',
-          `<button class="b main" id="mbt-merge" title="Łączy identyczne stosy w otwartej torbie do limitu stosu">⛓ &nbsp;Połącz identyczne</button>
-           <div class="hint" id="mbt-bagnote">–</div>`) +
-        sec('search', 'Szukaj przedmiotu',
-          `<input class="s" id="mbt-search" placeholder="Wpisz nazwę przedmiotu..." title="Polskie znaki nie są wymagane. Kilka słów = wszystkie muszą pasować.">
-           <div class="chips" id="mbt-hist"></div>
+        `<div class="h"><b>Torba</b><span id="mbt-bagnote">–</span></div>
+         <div class="card stat" id="mbt-bagstat"></div>
+         <div class="row">
+           <button class="btn pri grow" id="mbt-merge" title="Łączy identyczne stosy w otwartej torbie do limitu stosu">${ic('merge')}Połącz identyczne<kbd id="mbt-kmerge"></kbd></button>
+           <div class="split"><button class="btn" id="mbt-sortbtn" title="Sortuje otwartą torbę (ponowny klik zatrzymuje)">${ic('sort')}<span id="mbt-sortlbl"></span></button><button class="btn caret" id="mbt-sortcaret" title="Wybierz sposób sortowania">▾</button>
+             <div class="menu" id="mbt-sortmenu"><button data-sortmode="qual">Po jakości</button><button data-sortmode="name">Po nazwie</button><button data-sortmode="type">Po typie</button></div></div>
+         </div>` +
+        sec('search', 'Szukaj we wszystkich torbach',
+          `<div class="inp">${ic('search')}<input id="mbt-search" placeholder="Wpisz nazwę przedmiotu… (Enter)" title="Polskie znaki nie są wymagane. Kilka słów = wszystkie muszą pasować."><button class="ibtn" id="mbt-clear" title="Wyczyść pole, filtry i wynik">${ic('x')}</button></div>
            <div class="chips" id="mbt-rar"></div>
-           <div class="r"><button class="b" id="mbt-find" title="Szuka we wszystkich torbach">Szukaj</button>
-             <button class="b" id="mbt-clear" title="Czyści pole, filtry i wynik">Wyczyść</button></div>
-           ${chk('showCount', 'Pokaż liczbę sztuk')}`) +
-        sec('watch', 'Obserwowane przedmioty',
-          `<div class="r"><input class="s" id="mbt-wname" placeholder="Nazwa przedmiotu do obserwowania..." title="Wpisz fragment nazwy i kliknij Szukaj"><button class="b" id="mbt-wfind" style="flex:none">Szukaj</button></div>
-           <div class="r"><button class="b" data-wtarget="1" title="Kliknij ten przycisk, a potem przedmiot w torbie w grze">🎯 Wskaż przedmiot w grze</button></div>
-           <div class="chips" id="mbt-wpick"></div>
-           <div id="mbt-wlist"></div>
-           ${chk('watchShow', 'Pokaż małe okienko obserwowanych')}
-           <div class="r"><span>Czerwony alert, gdy ilość spadnie do (% progu)</span><input class="s n" type="number" id="mbt-wcrit" min="1" max="99"></div>
-           <div class="r"><span>Przypominaj co (s), 0 = nie</span><input class="s n" type="number" id="mbt-wremind" min="0" max="3600"></div>
-           <div class="r"><button class="b" data-wtest="1" title="Pokazuje przykładowe napisy na środku ekranu">Pokaż test napisów</button></div>`) +
-        sec('sort', 'Sortowanie (otwarta torba)',
-          `<div class="r"><button class="b" data-sort="name" title="Alfabetycznie">A↓Z Po nazwie</button><button class="b" data-sort="type" title="Według rodzaju przedmiotu">Po typie</button><button class="b" data-sort="qual" title="Od najrzadszych">★ Po jakości</button></div>
-           <div class="note">Przestawia przedmioty tylko w otwartej torbie, po jednym, i sprawdza każdy krok. Potrzebne jest 1 wolne miejsce w torbie. Kliknięcie dowolnego przycisku w trakcie zatrzymuje sortowanie.</div>`) +
-        sec('extra', 'Dodatkowe funkcje',
-          `<div class="r"><button class="b" id="mbt-dups" title="Pokazuje powtarzające się przedmioty w otwartej torbie">⧉ Pokaż duplikaty</button>
-             <button class="b" id="mbt-diag" title="Informacje techniczne do zgłaszania problemów">🔍 Diagnostyka</button></div>`) +
+           <div class="chips" id="mbt-hist"></div>
+           <div class="row">${chk('showCount', 'Pokaż liczbę sztuk')}<button class="btn sm" id="mbt-find">Szukaj</button></div>`) +
+        sec('extra', 'Narzędzia',
+          `<div class="row"><button class="btn grow" id="mbt-dups" title="Pokazuje powtarzające się przedmioty w otwartej torbie">${ic('copy')}Duplikaty</button>
+             <button class="btn grow" id="mbt-diag" title="Informacje techniczne do zgłaszania problemów">${ic('info')}Diagnostyka</button></div>`) +
         `<div class="out" id="mbt-out"></div>`,
     },
     {
-      id: 'loot', icon: '🎁', title: 'Zdobycze', w: 420,
+      id: 'depo', icon: 'depo', title: 'Depozyt',
       html:
-        sec('loot', 'Dropy: heroiki, legendy, smocze runy',
-          `<div class="note">Liczy tylko przedmioty z potworów (e2, kolosy, tytani, herosi itp.) i ze skrzynek – nie z handlu, aukcji ani depozytu. Licznik „Dziś” liczy od 00:00. Dane są wspólne dla postaci na tym świecie.</div>
-           <div class="chips" id="mbt-lootsum"></div>
-           <div class="logbox" id="mbt-lootlog"></div>
-           ${chk('lootToast', 'Pokazuj napis na środku ekranu po dropie')}
-           ${chk('lootLoose', 'Tryb luźny: licz też, gdy nie da się ustalić źródła')}
-           <div class="r"><button class="b" id="mbt-lootclear">Wyczyść dziennik</button></div>`),
+        `<div class="h"><b>Depozyt</b><span id="mbt-depohead">–</span></div>
+         <div class="row">
+           <button class="btn pri grow" id="mbt-depomerge" title="Łączy identyczne stosy na otwartej stronie depozytu przez torbę">${ic('merge')}<span>Połącz identyczne</span></button>
+           <button class="btn grow" data-dsort="qual" title="Od najrzadszych: artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity">${ic('sort')}<span>Sortuj po jakości</span></button>
+         </div>
+         <div class="card" id="mbt-depoplan"></div>
+         <div class="out" id="mbt-depores"></div>
+         <div class="note">${ic('info')}<span>Działa tylko na <b>otwartej stronie</b>. Łączenie: stosy idą do torby, łączą się do limitu i wracają na swoje miejsca. Sortowanie: po jednym, tylko na wolne pola (potrzebne 1 wolne miejsce). Każdy krok jest sprawdzany, ponowny klik zatrzymuje.</span></div>` +
+        sec('depostudy', 'Badanie depozytu (dla autora)',
+          `<div class="note">${ic('info')}<span>Te przyciski <b>nie wysyłają żadnych komend</b> – tylko czytają i zapisują, co się dzieje. Przydają się, gdy coś w depozycie nie działa.</span></div>
+           <ol class="howto">
+             <li>Otwórz depozyt w grze i kliknij <b>Zbadaj depozyt</b>.</li>
+             <li>Kliknij <b>Nagrywaj</b> i zrób ręcznie, na tanich przedmiotach: przenieś przedmiot na wolne miejsce, z depozytu do torby i z powrotem, przełącz stronę. Potem <b>Zatrzymaj</b>.</li>
+             <li>Kliknij <b>Kopiuj wynik</b> i wklej go autorowi.</li>
+           </ol>
+           <div class="row"><button class="btn grow" id="mbt-depostudy">${ic('search')}Zbadaj depozyt</button><button class="btn grow" id="mbt-deporec">⏺ Nagrywaj</button><button class="btn grow" id="mbt-depocopy">${ic('copy')}Kopiuj wynik</button></div>
+           <div class="note" id="mbt-deponote"></div>
+           <div class="out" id="mbt-depoout"></div>`),
     },
     {
-      id: 'set', icon: '⚙', title: 'Ustawienia', w: 470,
+      id: 'watch', icon: 'eye', title: 'Obserwowane',
       html:
-        sec('look', 'Wygląd okna',
-          `<div class="r"><span>Przezroczystość okna</span></div>
-           <div class="r"><input type="range" id="mbt-alpha" min="35" max="100"><b id="mbt-alpha-l" style="flex:none;width:45px"></b></div>
-           <div class="r"><span style="flex:none">Skala interfejsu</span><input type="range" id="mbt-scale" min="40" max="130"><b id="mbt-scale-l" style="flex:none;width:45px"></b></div>
-           <div class="r"><span style="flex:none">Rozmiar czcionki</span><input type="range" id="mbt-font" min="11" max="18"><b id="mbt-font-l" style="flex:none;width:45px"></b></div>
-           <div class="r"><span style="flex:none">Kolor akcentów</span><div class="sw" id="mbt-sw"></div></div>
-           <div class="r"><span style="flex:none">Motyw</span>${Object.entries(THEMES).map(([k, v]) => `<button class="b" data-theme="${k}">${v.n}</button>`).join('')}</div>
-           ${chk('compact', 'Tryb kompaktowy (mniejsze odstępy)')}
-           <div class="r"><span style="flex:none">Układ okien</span></div>
-           <div class="r"><button class="b" data-layout="reset" title="Przywraca domyślne pozycje">Reset</button>
-             <button class="b" data-layout="row" title="Okna jedno obok drugiego, od docka">Obok siebie</button></div>`) +
+        `<div class="h"><b>Obserwowane</b><span>alert, gdy zapas spadnie poniżej progu</span></div>` +
+        sec('wadd', 'Dodaj przedmiot',
+          `<div class="row"><div class="inp grow">${ic('search')}<input id="mbt-wname" placeholder="Nazwa przedmiotu… (Enter)" title="Wpisz fragment nazwy i kliknij Szukaj"></div><button class="btn" id="mbt-wfind">Szukaj</button></div>
+           ${wtBtn('btn', 'Wskaż przedmiot w grze')}
+           <div class="chips" id="mbt-wpick"></div>
+           <div class="note">${ic('info')}<span>Możesz też przeciągnąć przedmiot z torby na ramkę w małym okienku Obserwowane.</span></div>`) +
+        sec('wlist', 'Lista i progi alertu', `<div id="mbt-wlist"></div>`) +
+        sec('wopt', 'Opcje',
+          `${chk('watchShow', 'Pokaż małe okienko Obserwowane')}
+           <div class="sr"><span class="lb">Czerwony alert przy (% progu)</span><input class="num" type="number" id="mbt-wcrit" min="1" max="99"></div>
+           <div class="sr"><span class="lb">Przypominaj co (s), 0 = nie</span><input class="num" type="number" id="mbt-wremind" min="0" max="3600"></div>
+           <button class="btn" data-wtest="1" title="Pokazuje przykładowe napisy na środku ekranu">Pokaż test napisów</button>`),
+    },
+    {
+      id: 'loot', icon: 'gift', title: 'Zdobycze',
+      html:
+        `<div class="h"><b>Zdobycze</b><span>heroiki, legendy, smocze runy</span></div>
+         <div class="chips" id="mbt-lootsum"></div>` +
+        sec('lootlog', 'Dziennik', `<div class="logbox" id="mbt-lootlog"></div>`) +
+        sec('loot', 'Opcje',
+          `${chk('lootToast', 'Napis na środku ekranu po dropie')}
+           ${chk('lootLoose', 'Tryb luźny: licz też, gdy nie da się ustalić źródła')}
+           <div class="note">${ic('info')}<span>Liczy tylko przedmioty z potworów (e2, kolosy, tytani, herosi itp.) i ze skrzynek – nie z handlu, aukcji ani depozytu. „Dziś” liczy od 00:00. Dane są wspólne dla postaci na tym świecie.</span></div>
+           <button class="btn" id="mbt-lootclear">Wyczyść dziennik</button>`),
+    },
+    {
+      id: 'set', icon: 'gear', title: 'Ustawienia',
+      html:
+        `<div class="h"><b>Ustawienia</b></div>` +
+        sec('look', 'Wygląd',
+          `<div class="sr"><span class="lb">Kolor akcentu</span><div class="sw" id="mbt-sw"></div></div>
+           <div class="sr"><span class="lb">Motyw</span><div class="seg">${Object.entries(THEMES).map(([k, v]) => `<button data-theme="${k}">${v.n}</button>`).join('')}</div></div>
+           <div class="sr"><span class="lb">Skala</span><input type="range" id="mbt-scale" min="40" max="130"><span class="val" id="mbt-scale-l"></span></div>
+           <div class="sr"><span class="lb">Czcionka</span><input type="range" id="mbt-font" min="11" max="18"><span class="val" id="mbt-font-l"></span></div>
+           <div class="sr"><span class="lb">Przezroczystość</span><input type="range" id="mbt-alpha" min="35" max="100"><span class="val" id="mbt-alpha-l"></span></div>
+           <div class="sr">${chk('compact', 'Tryb kompaktowy (mniejsze odstępy)')}</div>
+           <div class="sr"><span class="lb">Położenie okien</span><button class="btn sm" data-layout="reset" title="Przywraca domyślne pozycje okien">Reset układu</button></div>`) +
         sec('keys', 'Skróty klawiszowe',
           `<div id="mbt-keys"></div>
-           <div class="note">Kliknij skrót i naciśnij 1, 2 lub 3 klawisze naraz. Esc – anuluj. Skrótów przeglądarki (np. Ctrl+W) nie da się przejąć.</div>
+           <div class="note">${ic('info')}<span>Kliknij skrót i naciśnij 1, 2 lub 3 klawisze naraz. Esc – anuluj. Skrótów przeglądarki (np. Ctrl+W) nie da się przejąć.</span></div>
            <div class="note" id="mbt-keynote"></div>
-           <div class="r"><button class="b" id="mbt-keysreset">Przywróć domyślne skróty</button></div>`) +
+           <button class="btn" id="mbt-keysreset">Przywróć domyślne skróty</button>`) +
         sec('backup', 'Kopia ustawień',
-          `<div class="r"><button class="b" id="mbt-exp" title="Kopiuje ustawienia jako tekst">Eksportuj do schowka</button><button class="b" id="mbt-imp" title="Wczytuje ustawienia z pola poniżej">Importuj z pola</button></div>
-           <textarea class="s" id="mbt-io" rows="4" placeholder="Tu pojawi się wyeksportowany tekst. Do importu wklej tu kopię."></textarea>
+          `<div class="row"><button class="btn grow" id="mbt-exp" title="Kopiuje ustawienia jako tekst">Eksportuj do schowka</button><button class="btn grow" id="mbt-imp" title="Wczytuje ustawienia z pola poniżej">Importuj z pola</button></div>
+           <textarea class="s" id="mbt-io" rows="3" placeholder="Tu pojawi się wyeksportowany tekst. Do importu wklej tu kopię."></textarea>
            <div class="note" id="mbt-ionote"></div>`),
     },
     {
-      id: 'help', icon: '📖', title: 'Funkcje', w: 480,
-      html: `<div class="help">` +
+      id: 'help', icon: 'help', title: 'Pomoc',
+      html: `<div class="h"><b>Pomoc</b><span>opis wszystkich funkcji</span></div><div class="help">` +
         sec('h-start', 'Podstawy obsługi',
           `<ul>
-            <li><b>Dock</b> (pionowy pasek z ikonami) otwiera okna: Torba, Zdobycze, Ustawienia, Funkcje, małe okienko Obserwowane i Depozyt (na razie badanie depozytu).</li>
-            <li><b>Kropki</b> w rogu okna (siatka 3×3) służą do przesuwania – tylko one. Każde okno przesuwasz osobno, a dock i ikonę ▣ też.</li>
-            <li><b>–</b> zwija okno do paska tytułu, <b>×</b> zamyka. Kliknięcie w nagłówek sekcji zwija ją (stan jest zapamiętywany).</li>
-            <li>Kliknięte okno wychodzi na wierzch. Przyciski „Reset” i „Obok siebie” (układa otwarte okna, a gdy brakuje miejsca – kaskadą) w Ustawieniach szybko układają okna. Okno nie wyjdzie za krawędź ekranu. Pozycje okien są zawsze zapamiętywane.</li>
-            <li>Po zamknięciu docka zostaje małe <b>logo M</b> (Mindaw) – kliknij je, żeby wrócić. Po odświeżeniu gry dock jest otwarty albo zamknięty tak, jak go zostawiłeś.</li>
-            <li>Numer wersji widać przy tytule okna Torba. Nowa wersja skryptu sama zastępuje starą (stare okno jest usuwane); ustawienia zostają.</li>
+            <li>Wszystko jest w <b>jednym oknie</b>. Pasek ikon po lewej przełącza zakładki: Torba, Depozyt, Obserwowane, Zdobycze, a pod kreską Ustawienia i Pomoc. Ikona z ludźmi włącza/wyłącza ukrywanie graczy. Czerwona kropka przy oku = któryś obserwowany przedmiot się kończy.</li>
+            <li><b>Kropki</b> w lewym górnym rogu (siatka 3×3) służą do przesuwania – tylko one. Główne okno, małe okienko Obserwowane i ikonę M przesuwasz osobno.</li>
+            <li><b>–</b> zwija okno do paska tytułu, <b>×</b> zamyka – zostaje mała ikona <b>M Mindaw</b>, kliknij ją, żeby wrócić. Kliknięcie w tytuł karty zwija ją (stan jest zapamiętywany).</li>
+            <li>Gdy coś się nie uda, na dole okna pojawia się <b>czerwony pasek błędu</b> z opisem; znika po × albo przy następnej udanej akcji. „Reset układu” w Ustawieniach przywraca pozycje okien. Okno nie wyjdzie za krawędź ekranu.</li>
+            <li>Numer wersji widać przy nazwie okna. Nowa wersja skryptu sama zastępuje starą (stare okno jest usuwane); ustawienia zostają.</li>
             <li><b>Ładowanie z GitHuba:</b> w Tampermonkey jest tylko mały skrypt-ładowacz, który przy każdym wejściu do gry wczytuje najnowszą wersję z GitHub Pages (majndaw.github.io/margonem-mindaw-addons). Zmiana w repozytorium działa po odświeżeniu gry, zwykle po kilku minutach od zapisania.</li>
           </ul>`) +
         sec('h-merge', 'Łączenie identycznych stosów',
           `<ul>
-            <li>Przycisk <b>Połącz identyczne</b> (lub Alt+Q) działa <b>tylko w otwartej torbie</b> – tej, którą masz aktualnie otwartą w grze. Pod przyciskiem widzisz, którą torbę skrypt wykrył.</li>
+            <li>Przycisk <b>Połącz identyczne</b> (zakładka Torba, lub Alt+Q) działa <b>tylko w otwartej torbie</b> – tej, którą masz aktualnie otwartą w grze. Na górze zakładki widzisz wykrytą torbę, zajęte miejsca i liczbę przedmiotów do połączenia.</li>
             <li>Łączy te same przedmioty o takich samych statystykach. Największy stos napełnia do limitu, a reszta zostaje w ostatnim stosie. Przykład: stosy 7, 4, 7 przy limicie 15 dadzą 15 i 3; stosy 9 i 9 przy limicie 10 dadzą 10 i 8.</li>
             <li>Po każdym kroku skrypt sprawdza, czy stos faktycznie urósł. Jeśli pierwsze łączenie nie zadziała, przerywa i nic dalej nie robi.</li>
             <li>Wynik pokazuje, co z czego powstało (np. „7, 7, 4 → 15, 3”). Skrypt <b>nigdy nie usuwa, nie sprzedaje i nie wyrzuca</b> przedmiotów.</li>
           </ul>`) +
         sec('h-sort', 'Sortowanie torby',
           `<ul>
-            <li>Przyciski <b>Po nazwie</b>, <b>Po typie</b> i <b>Po jakości</b> (okno Torba) układają przedmioty <b>tylko w otwartej torbie</b>, od lewego górnego rogu, bez luk. Jakość: od artefaktów i legend do pospolitych.</li>
+            <li>Przycisk <b>Sortuj</b> (zakładka Torba; strzałka ▾ obok wybiera: po jakości, nazwie lub typie) układa przedmioty <b>tylko w otwartej torbie</b>, od lewego górnego rogu, bez luk. Jakość: od artefaktów i legend do pospolitych.</li>
             <li>Skrypt przenosi przedmioty po jednym, wyłącznie na wolne miejsca, i po każdym kroku sprawdza, czy przedmiot trafił na miejsce. Przy pierwszym niepowodzeniu przerywa. Potrzebne jest co najmniej <b>1 wolne miejsce</b> w torbie.</li>
-            <li>Kliknięcie dowolnego przycisku sortowania w trakcie – zatrzymuje. Nic nie jest łączone, usuwane ani wyrzucane.</li>
+            <li>W trakcie przycisk zmienia się na <b>Zatrzymaj</b>. Nic nie jest łączone, usuwane ani wyrzucane.</li>
           </ul>`) +
         sec('h-depo', 'Depozyt',
           `<ul>
-            <li><b>⛓ Połącz identyczne w depozycie</b> (okno 🧰 Depozyt) łączy takie same stosy <b>na otwartej stronie</b> depozytu – tylko te przedmioty, które widać na ekranie.</li>
+            <li><b>Połącz identyczne</b> (zakładka Depozyt) łączy takie same stosy <b>na otwartej stronie</b> depozytu – tylko te przedmioty, które widać na ekranie.</li>
             <li>W depozycie gra nie łączy stosów, więc skrypt dla każdego przedmiotu po kolei: bierze jego niepełne stosy do torby, łączy je do limitu i odkłada na ich dawne miejsca w depozycie. Pełne stosy zostają nietknięte.</li>
             <li>Potrzeba tylu wolnych miejsc w torbach, ile stosów ma najliczniejszy przedmiot – jeśli brakuje, skrypt mówi ile i nic nie robi. Branie i odkładanie w depozycie jest darmowe.</li>
-            <li>Każdy krok jest sprawdzany. Przy błędzie skrypt przerywa i odkłada stosy z powrotem do depozytu; jeśli coś zostanie w torbie, wypisze co. Ponowne kliknięcie zatrzymuje po bieżącym przedmiocie.</li>
-            <li><b>Sortowanie depozytu</b> – przycisk <b>★ Sortuj po jakości</b> układa otwartą stronę depozytu od najrzadszych (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity), a w obrębie jakości po nazwie. Przedmioty są przenoszone w obrębie depozytu, po jednym, każdy krok sprawdzany; potrzebne 1 wolne miejsce na stronie.</li>
+            <li>Każdy krok jest sprawdzany. Przy błędzie skrypt przerywa i odkłada stosy z powrotem do depozytu; jeśli coś zostanie w torbie, wypisze co. W trakcie przycisk zmienia się na <b>Zatrzymaj</b> (zatrzymuje po bieżącym przedmiocie). Karta nad wynikiem pokazuje, ile przedmiotów jest do połączenia i ile wolnych miejsc w torbach potrzeba.</li>
+            <li><b>Sortowanie depozytu</b> – przycisk <b>Sortuj po jakości</b> układa otwartą stronę depozytu od najrzadszych (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity), a w obrębie jakości po nazwie. Przedmioty są przenoszone w obrębie depozytu, po jednym, każdy krok sprawdzany; potrzebne 1 wolne miejsce na stronie.</li>
             <li>Sekcja <b>Badanie depozytu</b> (Zbadaj, Nagrywaj, Kopiuj) tylko czyta i zapisuje – przydaje się, gdy coś nie działa.</li>
           </ul>`) +
         sec('h-search', 'Szukanie przedmiotów',
           `<ul>
-            <li><b>Szukaj</b> (lub Alt+F, potem Enter) przeszukuje <b>wszystkie torby</b> i pokazuje, gdzie leży przedmiot, np. „Torba 1 (4 szt.) i Torba 2 (2 szt.)”.</li>
+            <li><b>Szukaj</b> (zakładka Torba, lub Alt+F, potem Enter) przeszukuje <b>wszystkie torby</b> i pokazuje listę: nazwa, rzadkość i gdzie leży, np. „T1 ×4 · T2 ×2”.</li>
             <li>Polskie znaki nie są potrzebne („zwoj” znajdzie „Zwój”). Kilka słów oznacza, że wszystkie muszą pasować.</li>
             <li>Pod polem są <b>ostatnie hasła</b> (klik = szukaj ponownie) oraz <b>przyciski rzadkości</b> – pojawiają się dla rzadkości, które masz w plecaku. Można szukać samą rzadkością, bez nazwy.</li>
             <li>Przełącznik <b>Pokaż liczbę sztuk</b> dopisuje do wyników łączną ilość w każdej torbie. Ostatni wynik szukania jest zapamiętywany i wraca po odświeżeniu gry.</li>
-            <li><b>Pokaż duplikaty</b> wypisuje przedmioty, które w otwartej torbie leżą w kilku stosach. <b>Wyczyść</b> kasuje pole, filtry i wynik.</li>
+            <li><b>Duplikaty</b> wypisuje przedmioty, które w otwartej torbie leżą w kilku stosach. <b>×</b> w polu szukania kasuje pole, filtry i wynik.</li>
           </ul>`) +
         sec('h-watch', 'Obserwowane przedmioty',
           `<ul>
-            <li>Dodajesz przedmiot na 3 sposoby: wpisując nazwę (Szukaj → klik w wynik), przyciskiem <b>🎯 Wskaż w grze</b> (klikasz przedmiot w torbie – nie zostanie użyty) albo <b>przeciągając</b> go z torby na ramkę w małym okienku „Obserwowane”. Dodać można tylko przedmioty z torby (nie założone).</li>
+            <li>Dodajesz przedmiot na 3 sposoby: wpisując nazwę (Szukaj → klik w wynik), przyciskiem <b>Wskaż w grze</b> (klikasz przedmiot w torbie – nie zostanie użyty) albo <b>przeciągając</b> go z torby na ramkę w małym okienku „Obserwowane”. Dodać można tylko przedmioty z torby (nie założone).</li>
             <li>Przedmiot upuszczony na <b>dowolne okno dodatku</b> wraca na swoje miejsce w torbie (gra dostaje „puszczenie” w miejscu, skąd go wzięto) – nie powinno się już pojawiać pytanie o wyrzucenie lub zniszczenie. Gdyby jednak się pojawiło, <b>anuluj</b> je i wklej wynik Diagnostyki.</li>
-            <li><b>✕</b> przy przedmiocie w małym okienku (albo w oknie Torba) przestaje go obserwować – przedmiot w torbie zostaje nietknięty.</li>
-            <li>Małe okienko pokazuje grafikę przedmiotu, jego nazwę i <b>łączną ilość ze wszystkich toreb</b> (suma sztuk, nie liczba stosów).</li>
+            <li><b>×</b> przy przedmiocie w małym okienku (albo w zakładce Obserwowane) przestaje go obserwować – przedmiot w torbie zostaje nietknięty.</li>
+            <li>Małe okienko pokazuje grafikę przedmiotu, jego nazwę, <b>łączną ilość ze wszystkich toreb</b> (suma sztuk) i pasek zapasu względem progu: zielony, żółty, czerwony.</li>
             <li>Dla każdego przedmiotu ustawiasz <b>próg</b> (domyślnie 50). Gdy ilość spadnie poniżej progu, na środku ekranu pojawia się <b style="color:#ffd400">żółty napis</b>. Gdy spadnie do wybranego procentu progu (domyślnie 50%), napis jest <b style="color:#ff3b30">czerwony</b>.</li>
             <li>Możesz ustawić przypomnienie co N sekund (0 = tylko raz). Przycisk <b>Pokaż test napisów</b> pokazuje oba napisy bez czekania.</li>
-            <li>Przedmioty rozpoznawane są po nazwie. Okienko otwierasz i zamykasz przyciskiem <b>👁 Obserwowane</b> w docku (albo przełącznikiem w oknie Torba), zamkniesz je też ×.</li>
+            <li>Przedmioty rozpoznawane są po nazwie. Małe okienko włączasz przełącznikiem w zakładce Obserwowane, zamykasz ×. Progi i opcje są w zakładce Obserwowane.</li>
           </ul>`) +
         sec('h-loot', 'Zdobycze (dziennik dropów)',
           `<ul>
@@ -185,19 +244,19 @@
           </ul>`) +
         sec('h-others', 'Ukrywanie graczy',
           `<ul>
-            <li>Przycisk <b>👥 Gracze</b> w docku włącza i wyłącza ukrywanie innych graczy na mapie. Pod napisem widać stan: <b>ukryci</b> / <b>widoczni</b>. Ustawienie jest zapamiętywane.</li>
+            <li>Ikona <b>ludzi</b> na pasku po lewej (nad Ustawieniami) włącza i wyłącza ukrywanie innych graczy na mapie – podświetlona = ukryci. Ustawienie jest zapamiętywane.</li>
             <li>Działa jak skrypt „usuwacz innych”: dane o innych graczach przysłane przez serwer są pomijane – tylko u Ciebie, nic nie jest wysyłane do gry.</li>
             <li>Gracze już widoczni znikną (albo po wyłączeniu – pojawią się) po <b>zmianie mapy lub odświeżeniu</b> gry.</li>
           </ul>`) +
         sec('h-keys', 'Skróty klawiszowe',
           `<ul>
-            <li>Domyślnie: <b>Alt+T</b> – otwórz/zamknij dock, <b>Alt+Q</b> – połącz identyczne, <b>Alt+F</b> – szukaj.</li>
+            <li>Domyślnie: <b>Alt+T</b> – otwórz/zamknij okno, <b>Alt+Q</b> – połącz identyczne, <b>Alt+F</b> – szukaj.</li>
             <li>W Ustawieniach kliknij skrót i naciśnij 1, 2 lub 3 klawisze naraz – zapisze się po puszczeniu. Esc anuluje, ✕ usuwa. Skrót zajęty przez inną akcję zostaje jej odebrany.</li>
             <li>Skróty bez Alt/Ctrl nie działają, gdy piszesz w polu tekstowym. Skrótów przeglądarki (np. Ctrl+W) nie da się przejąć.</li>
           </ul>`) +
         sec('h-look', 'Wygląd i ustawienia',
           `<ul>
-            <li><b>Skala interfejsu</b> 40–130% (domyślnie 80%), <b>rozmiar czcionki</b>, <b>przezroczystość</b>, 7 kolorów akcentu, 4 motywy tła i tryb kompaktowy.</li>
+            <li><b>Skala interfejsu</b> 40–130% (domyślnie 80%), <b>rozmiar czcionki</b>, <b>przezroczystość</b>, 7 kolorów akcentu, 4 motywy tła i tryb kompaktowy – w zakładce Ustawienia.</li>
             <li>Skala i rozmiar czcionki zmieniają się <b>po puszczeniu suwaka</b> (w trakcie widać tylko liczbę) – dzięki temu suwak nie ucieka spod kursora.</li>
             <li>Wysokość okna dopasowuje się do miejsca na ekranie – gdy treść się nie mieści, przewiń ją kółkiem myszy.</li>
           </ul>`) +
@@ -208,7 +267,7 @@
           </ul>`) +
         sec('h-diag', 'Diagnostyka',
           `<ul>
-            <li>Przycisk <b>🔍 Diagnostyka</b> (okno Torba) wypisuje informacje techniczne: wersję, układ toreb, wykrytą otwartą torbę, rzadkości, dostępność grafiki, sygnały dziennika zdobyczy oraz co gra zrobiła po ostatnim upuszczeniu przedmiotu na okno dodatku (komendy i nowe okienka przez 3 s).</li>
+            <li>Przycisk <b>Diagnostyka</b> (zakładka Torba, karta Narzędzia) wypisuje informacje techniczne: wersję, układ toreb, wykrytą otwartą torbę, rzadkości, dostępność grafiki, sygnały dziennika zdobyczy oraz co gra zrobiła po ostatnim upuszczeniu przedmiotu na okno dodatku (komendy i nowe okienka przez 3 s).</li>
             <li>Jeśli coś nie działa, wklej ten wynik – na jego podstawie da się poprawić rozpoznawanie.</li>
           </ul>`) +
         sec('h-soon', 'Jeszcze niedostępne',
@@ -229,6 +288,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.21.0</b> – <b>nowy wygląd</b>: jedno okno z paskiem zakładek (Torba, Depozyt, Obserwowane, Zdobycze, Ustawienia, Pomoc), ikony zamiast emoji, karty, czerwony pasek błędu na dole tylko przy błędzie, lista wyników szukania, postęp łączenia w depozycie, nowe małe okienko Obserwowane z paskami zapasu, nowe napisy na ekranie i ikona M po zamknięciu.</li>
             <li><b>0.20.0</b> – <b>👥 Gracze</b> w docku: ukrywanie innych graczy (jak „usuwacz innych”); w depozycie zostało tylko sortowanie po jakości.</li>
             <li><b>0.19.0</b> – <b>sortowanie depozytu</b> (otwarta strona): po nazwie, typie i jakości, jak w torbie.</li>
             <li><b>0.18.0</b> – <b>łączenie identycznych stosów w depozycie</b> na otwartej stronie (przez torbę: weź → połącz → odłóż na miejsce, każdy krok sprawdzany); badanie depozytu przeniesione do zwijanej sekcji.</li>
@@ -247,158 +307,215 @@
           </ul>`) +
         `</div>`,
     },
-    { id: 'watch', icon: '👁', title: 'Obserwowane', w: 230, mini: true, html: '<div id="mbt-watchrows"></div><div class="wslot" data-wslot title="Przeciągnij przedmiot z torby w tę ramkę"><span>＋</span><small>przeciągnij tu przedmiot z torby</small></div><button class="b" data-wtarget="1" style="width:100%;margin-top:6px" title="Kliknij, a potem kliknij przedmiot w torbie">🎯 Wskaż w grze</button>' },
-    {
-      id: 'depo', icon: '🧰', title: 'Depozyt', w: 470,
-      html:
-        sec('depo', 'Łączenie i sortowanie (otwarta strona)',
-          `<button class="b main" id="mbt-depomerge" title="Łączy identyczne stosy na otwartej stronie depozytu przez torbę">⛓ &nbsp;Połącz identyczne w depozycie</button>
-           <div class="note">Działa tylko na <b>otwartej stronie</b> depozytu. W depozycie gra nie łączy stosów, więc skrypt po kolei dla każdego przedmiotu: bierze jego stosy do torby (potrzebne wolne miejsca), łączy je do limitu i odkłada na ich miejsca w depozycie. Każdy krok jest sprawdzany; przy błędzie przerywa i odkłada stosy z powrotem. Kliknij ponownie, żeby zatrzymać po bieżącym przedmiocie.</div>
-           <div class="r"><button class="b" data-dsort="qual" title="Od najrzadszych: artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity">★ Sortuj po jakości</button></div>
-           <div class="note">Sortowanie układa przedmioty <b>otwartej strony</b> od lewego górnego rogu, bez luk – po jednym, tylko na wolne miejsca (potrzebne 1 wolne miejsce na stronie). Kliknięcie dowolnego przycisku sortowania w trakcie zatrzymuje.</div>
-           <div class="out" id="mbt-depores"></div>`) +
-        sec('depostudy', 'Badanie depozytu (dla autora)',
-          `<div class="note">Te przyciski <b>nie wysyłają żadnych komend</b> – tylko czytają i zapisują, co się dzieje. Przydają się, gdy coś w depozycie nie działa.</div>
-           <ol class="steps">
-             <li>Otwórz depozyt w grze (strona 1) i kliknij <b>🔍 Zbadaj depozyt</b>.</li>
-             <li>Kliknij <b>⏺ Nagrywaj</b> i zrób ręcznie, na tanich przedmiotach: (a) przeciągnij stos na taki sam stos w depozycie, (b) przenieś przedmiot na wolne miejsce w depozycie, (c) przenieś przedmiot z depozytu do torby i z powrotem, (d) przełącz stronę depozytu na 2 i z powrotem na 1. Potem <b>⏹ Zatrzymaj</b>.</li>
-             <li>Kliknij <b>📋 Kopiuj wynik</b> i wklej mi go.</li>
-           </ol>
-           <div class="r"><button class="b" id="mbt-depostudy">🔍 Zbadaj depozyt</button><button class="b" id="mbt-deporec">⏺ Nagrywaj</button></div>
-           <div class="r"><button class="b" id="mbt-depocopy">📋 Kopiuj wynik</button></div>
-           <div class="note" id="mbt-deponote"></div>
-           <div class="out" id="mbt-depoout"></div>`),
-    },
   ];
+  const TAB_IDS = TABS.map(t => t.id);
+  const SORT_LBL = { qual: 'jakość', name: 'nazwa', type: 'typ' };
+  if (!TAB_IDS.includes(S.tab)) S.tab = 'torba';
+  // okna: główne (zakładki) i małe okienko obserwowanych; 'dock' = pozycja ikony po zamknięciu
+  const WINS = [{ id: 'main', w: 520 }, { id: 'watch', w: 250, mini: true }];
   const WIN_IDS = WINS.map(w => w.id);
-  // logo Mindaw: geometryczne „M” w sześciokątnej tarczy z kryształem (kolor akcentu)
-  const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1.6 21 6.8v10.4l-9 5.2-9-5.2V6.8z" fill="currentColor" fill-opacity=".14" stroke-width="1.5"/><path d="M7 16.8V8.6l5 5.6 5-5.6v8.2" stroke-width="2.3"/><path d="M12 4.3l1.3 1.3L12 6.9l-1.3-1.3z" fill="currentColor" stroke-width="1"/></svg>';
-  const gripHTML = id => `<span class="grip" data-grip="${id}" title="Przeciągnij, aby przenieść">${'<i></i>'.repeat(9)}</span>`;
+  const railBtn = t => `<button class="ri" data-go="${t.id}" title="${t.title}">${ic(t.icon)}</button>`;
 
   /* ---------- style ---------- */
   const css = document.createElement('style');
   css.dataset.mbt = '1';
   css.textContent = `
-  #mbt-root{--ac:#00e676;--a:.7;--r:14px;--sc:1;--fs:14px;--bg:9,15,16;--ctl:#162021;--inp:#101819;--bd:#2f3d3e;
-    font:var(--fs)/1.4 Arial,sans-serif;color:#edf5f1;user-select:none}
+  #mbt-root{--ac:#2fd27a;--a:.94;--sc:1;--fs:13px;--bg:14,19,21;--card:#151c1f;--card2:#1a2226;--inp:#0e1416;--bd:#263136;--bd2:#2f3c42;--rail:#11171a;
+    --tx:#e6eef0;--tx2:#9fb0b5;--tx3:#6c7c82;--red:#ff5a52;--yel:#ffc53d;
+    font:var(--fs)/1.45 "Segoe UI",Inter,system-ui,-apple-system,Arial,sans-serif;color:var(--tx);user-select:none}
   #mbt-root *{box-sizing:border-box}
-  #mbt-root .win{position:fixed;z-index:2147480000;display:none;transform:scale(var(--sc));transform-origin:top left;
-    background:rgba(var(--bg),var(--a));border:1px solid var(--ac);border-radius:var(--r);overflow:hidden;backdrop-filter:blur(8px)}
-  #mbt-root.shadow .win{box-shadow:0 8px 30px #000a}
-  #mbt-root .win.show{display:block}
-  #mbt-root .win.min .body{display:none}
-  #mbt-root .win.min .head{border-bottom:0}
-  #mbt-root .head{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;font-size:1.43em;font-weight:bold;border-bottom:1px solid #ffffff18}
-  #mbt-root .head .t{flex:1}
-  #mbt-root .head small{font-size:.5em;font-weight:normal;opacity:.5;margin-left:6px}
-  #mbt-root .ib{background:none;border:0;color:#cfd9d6;font-size:1.57em;cursor:pointer;padding:0 6px;line-height:1}
-  #mbt-root .ib:hover{color:var(--ac)}
-  #mbt-root .body{padding:4px 18px 18px;max-height:calc(100vh - 140px);overflow:auto}
-  #mbt-root .sec+.sec{border-top:1px solid #ffffff18;margin-top:12px}
-  #mbt-root h4{display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px;font-size:1.14em;cursor:pointer}
-  #mbt-root h4:hover{color:var(--ac)}
+  #mbt-root svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  #mbt-root .win{position:fixed;z-index:2147480000;display:none;flex-direction:column;transform:scale(var(--sc));transform-origin:top left;
+    background:rgba(var(--bg),var(--a));border:1px solid var(--bd);border-radius:12px;overflow:hidden;backdrop-filter:blur(10px);
+    box-shadow:0 18px 50px #0009,0 0 0 1px #ffffff06 inset}
+  #mbt-root .win.show{display:flex}
+  #mbt-root .top{display:flex;align-items:center;gap:10px;height:44px;flex:none;padding:0 8px 0 4px;border-bottom:1px solid var(--bd);background:linear-gradient(#ffffff08,#ffffff00)}
+  #mbt-root .win.min .top{border-bottom:0}
+  #mbt-root .win.min .mid,#mbt-root .win.min .err{display:none!important}
+  #mbt-root .logo{display:flex;color:var(--ac)}
+  #mbt-root .logo svg{width:24px;height:24px}
+  #mbt-root .brand{font-weight:600;font-size:1.08em;white-space:nowrap}
+  #mbt-root .ver{font-size:.85em;color:var(--tx3);border:1px solid var(--bd);border-radius:999px;padding:0 7px}
+  #mbt-root .sp{flex:1}
+  #mbt-root .grip{display:inline-grid;grid-template-columns:repeat(3,3px);gap:3px;padding:8px;cursor:move;touch-action:none;border-radius:6px;flex:none}
+  #mbt-root .grip i{width:3px;height:3px;border-radius:50%;background:var(--tx3)}
+  #mbt-root .grip:hover i{background:var(--ac)}
+  #mbt-root .ibtn{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;border:0;background:none;color:var(--tx2);cursor:pointer;padding:0;flex:none}
+  #mbt-root .ibtn:hover{background:#ffffff0d;color:var(--tx)}
+  #mbt-root .mid{display:grid;grid-template-columns:56px minmax(0,1fr);min-height:0;flex:1}
+  #mbt-root .rail{border-right:1px solid var(--bd);padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--rail)}
+  #mbt-root .ri{position:relative;width:40px;height:40px;display:grid;place-items:center;border-radius:9px;color:var(--tx3);cursor:pointer;border:0;background:none;padding:0}
+  #mbt-root .ri svg.ic{width:19px;height:19px}
+  #mbt-root .ri:hover{color:var(--tx);background:#ffffff0a}
+  #mbt-root .ri.on{color:var(--ac);background:color-mix(in srgb,var(--ac) 13%,transparent)}
+  #mbt-root .ri[data-go].on::before{content:"";position:absolute;left:-8px;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--ac)}
+  #mbt-root .ri.alert::after{content:"";position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px var(--rail)}
+  #mbt-root .rsep{height:1px;width:28px;background:var(--bd);margin:4px 0}
+  #mbt-root .body{padding:14px 16px;overflow:auto;min-height:0}
+  #mbt-root .tab{display:none;flex-direction:column;gap:12px}
+  #mbt-root .tab.on{display:flex}
+  #mbt-root .h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  #mbt-root .h b{font-size:1.15em;font-weight:600}
+  #mbt-root .h span{color:var(--tx3);font-size:.92em}
+  #mbt-root .card,#mbt-root .sec{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+  #mbt-root .card:empty{display:none}
+  #mbt-root .sec h4,#mbt-root .ctitle{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:.85em;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--tx3)}
+  #mbt-root .sec h4{cursor:pointer}
+  #mbt-root .sec h4 span{flex:1}
+  #mbt-root .sec h4:hover{color:var(--tx2)}
   #mbt-root .chev{font-style:normal;transition:transform .15s}
+  #mbt-root .sec.fold h4{margin:0}
   #mbt-root .sec.fold .chev{transform:rotate(-90deg)}
   #mbt-root .sec.fold .sc{display:none}
-  #mbt-root .sec.fold h4{margin-bottom:4px}
-  #mbt-root .hint,#mbt-root .note{margin-top:10px;font-size:.86em;color:#aab8b4}
-  #mbt-root .hint{padding:9px 12px;border:1px solid var(--bd);border-radius:9px;font-size:.93em;background:var(--inp)}
-  #mbt-root button.b{background:var(--ctl);color:#e9f2ef;border:1px solid var(--bd);border-radius:9px;padding:11px;
-    cursor:pointer;font:inherit;transition:.15s}
-  #mbt-root button.b:hover:not(:disabled){border-color:var(--ac)}
-  #mbt-root button.b.on{border-color:var(--ac);color:var(--ac)}
-  #mbt-root button.b:disabled{opacity:.45;cursor:not-allowed}
-  #mbt-root button.main{width:100%;font-size:1.21em;font-weight:bold;color:#fff;
-    background:linear-gradient(color-mix(in srgb,var(--ac) 85%,#fff),color-mix(in srgb,var(--ac) 55%,#000));
-    border-color:var(--ac);padding:13px}
-  #mbt-root .r{display:flex;gap:10px;margin-top:10px;align-items:center}
-  #mbt-root .r>*{flex:1}
-  #mbt-root .r>.n{flex:none;width:72px}
-  #mbt-root input.s,#mbt-root textarea.s{width:100%;padding:12px;background:var(--inp);color:#fff;border:1px solid var(--bd);border-radius:9px;outline:none;font:inherit}
-  #mbt-root textarea.s{margin-top:10px;resize:vertical;user-select:text;font-size:.86em}
-  #mbt-root input.s:focus,#mbt-root textarea.s:focus{border-color:var(--ac)}
-  #mbt-root select{width:100%;padding:12px;background:var(--inp);color:#fff;border:1px solid var(--bd);border-radius:9px;font:inherit}
-  #mbt-root .tg{display:flex;align-items:center;gap:10px;width:100%;margin:4px 0;padding:6px 2px;background:none;border:0;
-    color:inherit;font:inherit;text-align:left;cursor:pointer}
-  #mbt-root .tg i{flex:none;position:relative;width:38px;height:22px;border-radius:999px;background:var(--inp);border:1px solid var(--bd);transition:.15s}
-  #mbt-root .tg i::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#8b9894;transition:.15s}
-  #mbt-root .tg.on i{background:color-mix(in srgb,var(--ac) 40%,var(--inp));border-color:var(--ac)}
-  #mbt-root .tg.on i::after{left:19px;background:var(--ac)}
-  #mbt-root .tg:hover span{color:var(--ac)}
-  #mbt-root input[type=range]{flex:1;accent-color:var(--ac)}
-  #mbt-root .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  #mbt-root .sc{display:flex;flex-direction:column;gap:8px}
+  #mbt-root .row{display:flex;gap:8px;align-items:center}
+  #mbt-root .row>.tg{flex:1}
+  #mbt-root .grow{flex:1}
+  #mbt-root .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--bd2);
+    background:var(--card2);color:var(--tx);font:inherit;font-weight:500;cursor:pointer;white-space:nowrap;transition:border-color .15s}
+  #mbt-root .btn:hover{border-color:var(--ac)}
+  #mbt-root .btn.on{border-color:var(--ac);color:var(--ac)}
+  #mbt-root .btn.pri{background:linear-gradient(var(--ac),color-mix(in srgb,var(--ac) 72%,#000));border-color:transparent;color:#06140c;font-weight:600}
+  #mbt-root .btn.pri:hover{filter:brightness(1.08)}
+  #mbt-root .btn.stop,#mbt-root .btn.pri.stop{background:var(--card2);border-color:var(--yel);color:var(--yel)}
+  #mbt-root .btn.sm{height:28px;padding:0 10px}
+  #mbt-root kbd{font-family:inherit;font-size:.82em;line-height:1;color:var(--tx2);border:1px solid var(--bd2);border-bottom-width:2px;border-radius:5px;padding:2px 5px;background:var(--inp)}
+  #mbt-root kbd:empty{display:none}
+  #mbt-root .btn.pri kbd{background:#0003;border-color:#0003;color:inherit}
+  #mbt-root .split{position:relative;display:flex}
+  #mbt-root .split>.btn:first-child{border-radius:8px 0 0 8px}
+  #mbt-root .split>.caret{border-radius:0 8px 8px 0;border-left:0;padding:0 8px}
+  #mbt-root .menu{display:none;position:absolute;right:0;top:38px;z-index:5;min-width:150px;background:var(--card2);border:1px solid var(--bd2);border-radius:9px;padding:4px;box-shadow:0 10px 30px #0008}
+  #mbt-root .menu.show{display:block}
+  #mbt-root .menu button{display:flex;width:100%;padding:7px 10px;border:0;border-radius:6px;background:none;color:var(--tx);font:inherit;cursor:pointer;text-align:left}
+  #mbt-root .menu button:hover{background:#ffffff0d}
+  #mbt-root .menu button.on{color:var(--ac)}
+  #mbt-root .inp{display:flex;align-items:center;gap:8px;height:34px;padding:0 3px 0 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--inp);color:var(--tx3)}
+  #mbt-root .inp:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 18%,transparent)}
+  #mbt-root .inp input{flex:1;min-width:0;height:100%;border:0;outline:0;background:none;color:var(--tx);font:inherit;user-select:text}
+  #mbt-root input.num{width:68px;height:30px;padding:0 8px;border:1px solid var(--bd2);border-radius:7px;background:var(--inp);color:var(--tx);font:inherit;outline:0}
+  #mbt-root input.num:focus{border-color:var(--ac)}
+  #mbt-root textarea.s{width:100%;padding:8px 10px;background:var(--inp);color:var(--tx);border:1px solid var(--bd2);border-radius:8px;outline:none;font:inherit;font-size:.9em;resize:vertical;user-select:text}
+  #mbt-root .chips{display:flex;flex-wrap:wrap;gap:6px}
   #mbt-root .chips:empty{display:none}
-  #mbt-root .chip{background:var(--ctl);border:1px solid var(--bd);color:#cfd9d6;border-radius:999px;padding:4px 11px;font:inherit;font-size:.86em;cursor:pointer}
-  #mbt-root button.chip:hover{border-color:var(--ac)}
-  #mbt-root .chip.on{border-color:var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 16%,var(--inp))}
-  #mbt-root .chip.x{opacity:.65}
-  #mbt-root .out,#mbt-root .logbox{margin-top:12px;padding:10px;border:1px solid var(--bd);border-radius:9px;color:#b9c7c2;
-    font-size:.86em;white-space:pre-wrap;max-height:240px;overflow:auto;user-select:text}
-  #mbt-root .out{display:none}
-  #mbt-root .logbox:empty{display:none}
-  #mbt-root .wl{display:flex;align-items:center;gap:8px;margin-top:8px}
+  #mbt-root .chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:99px;border:1px solid var(--bd2);color:var(--tx2);font:inherit;font-size:.9em;background:var(--inp);cursor:pointer}
+  #mbt-root .chip:hover{border-color:var(--ac)}
+  #mbt-root .chip.on{border-color:var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,transparent)}
+  #mbt-root .chip.bad{border-color:var(--red);color:var(--red)}
+  #mbt-root .chip.x{opacity:.7}
+  #mbt-root .chip .d{width:7px;height:7px;border-radius:50%}
+  #mbt-root .tg{display:flex;align-items:center;gap:10px;width:100%;padding:4px 0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+  #mbt-root .tg span{flex:1}
+  #mbt-root .tg i{order:2;flex:none;position:relative;width:34px;height:20px;border-radius:99px;background:var(--inp);border:1px solid var(--bd2);transition:.15s}
+  #mbt-root .tg i::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:var(--tx3);transition:.15s}
+  #mbt-root .tg.on i{background:color-mix(in srgb,var(--ac) 35%,var(--inp));border-color:var(--ac)}
+  #mbt-root .tg.on i::after{left:17px;background:var(--ac)}
+  #mbt-root .sr{display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid #ffffff08}
+  #mbt-root .sr:first-child{border-top:0}
+  #mbt-root .sr .lb{flex:1}
+  #mbt-root input[type=range]{width:150px;accent-color:var(--ac)}
+  #mbt-root .val{width:46px;text-align:right;color:var(--tx2);font-variant-numeric:tabular-nums}
+  #mbt-root .sw{display:flex;gap:6px}
+  #mbt-root .sw i{width:18px;height:18px;border-radius:5px;cursor:pointer}
+  #mbt-root .sw i.on{box-shadow:0 0 0 2px var(--inp),0 0 0 4px #fff}
+  #mbt-root .seg{display:flex;background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:2px;gap:2px}
+  #mbt-root .seg button{padding:4px 10px;border-radius:6px;border:0;background:none;color:var(--tx2);font:inherit;font-weight:500;cursor:pointer}
+  #mbt-root .seg button.on{background:var(--card2);color:var(--tx);box-shadow:0 0 0 1px var(--bd2)}
+  #mbt-root .ctx{display:flex;align-items:center;gap:12px}
+  #mbt-root .big{font-size:1.55em;font-weight:600;line-height:1.1}
+  #mbt-root .big small{font-size:.6em;color:var(--tx3);font-weight:400}
+  #mbt-root .muted{color:var(--tx3);font-size:.9em}
+  #mbt-root .tx2{color:var(--tx2)}
+  #mbt-root .meter{flex:1;height:6px;border-radius:99px;background:var(--inp);overflow:hidden;border:1px solid var(--bd)}
+  #mbt-root .meter i{display:block;height:100%;background:var(--ac);border-radius:99px;transition:width .3s}
+  #mbt-root .note{display:flex;gap:8px;align-items:flex-start;font-size:.92em;color:var(--tx3)}
+  #mbt-root .note:empty{display:none}
+  #mbt-root .note svg.ic{margin-top:2px;color:var(--tx2)}
+  #mbt-root .note b{color:var(--tx2)}
+  #mbt-root .out{display:none;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx2);font-size:.92em;white-space:pre-wrap;max-height:280px;overflow:auto;user-select:text}
+  #mbt-root .out.rich{white-space:normal}
+  #mbt-root .logbox{background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--tx2);font-size:.9em;white-space:pre-wrap;max-height:240px;overflow:auto;user-select:text}
+  #mbt-root .logbox:empty::before{content:'Brak zapisanych dropów.';color:var(--tx3)}
+  #mbt-root .fh{color:var(--tx3);font-size:.92em;margin-bottom:2px}
+  #mbt-root .li{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #ffffff08}
+  #mbt-root .li:first-of-type{border-top:0}
+  #mbt-root .nm{flex:1;min-width:0}
+  #mbt-root .nm b{font-weight:500;color:var(--tx);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mbt-root .pill{display:inline-block;font-size:.82em;padding:0 7px;border-radius:99px;border:1px solid currentColor;margin-top:2px}
+  #mbt-root .loc{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+  #mbt-root .loc span{font-size:.88em;color:var(--tx2);background:var(--inp);border:1px solid var(--bd);border-radius:5px;padding:1px 6px;white-space:nowrap}
+  #mbt-root .steps{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  #mbt-root .st{display:flex;align-items:center;gap:8px;color:var(--tx2)}
+  #mbt-root .st.ok svg{color:var(--ac)}
+  #mbt-root .st.run{color:var(--tx)}
+  #mbt-root .st.run svg{color:var(--yel)}
+  #mbt-root .st.wait{color:var(--tx3)}
+  #mbt-root .st.bad{color:var(--red)}
+  #mbt-root .cnt{text-transform:none;letter-spacing:0;font-weight:500;color:var(--tx2)}
+  #mbt-root ol.howto{margin:0;padding-left:18px;color:var(--tx2);font-size:.92em}
+  #mbt-root ol.howto li{margin:4px 0}
+  #mbt-root ol.howto b{color:var(--ac)}
+  #mbt-root .err{display:none;align-items:flex-start;gap:10px;padding:10px 6px 10px 12px;border-top:1px solid #ff5a5233;background:linear-gradient(#2a1414,#221111);color:#ffd9d6;font-size:.95em;flex:none}
+  #mbt-root .win.haserr .err{display:flex}
+  #mbt-root .err>svg.ic{color:var(--red);width:17px;height:17px;margin-top:2px}
+  #mbt-root .err>span{flex:1;min-width:0;user-select:text}
+  #mbt-root .err b{display:block;color:#fff;font-weight:600}
+  #mbt-root .err small{display:block;color:#e9a8a3;font-size:.92em;margin-top:2px}
+  #mbt-root .err small:empty{display:none}
+  #mbt-root .err .ibtn{color:#ffb3ad}
+  #mbt-root .wl{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #ffffff08}
+  #mbt-root .wl:first-child{border-top:0}
   #mbt-root .wl .wn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #mbt-root .wl .n{width:66px;padding:6px}
-  #mbt-root .win.mini .head{padding:4px 8px 4px 4px;font-size:1em}
-  #mbt-root .win.mini .body{padding:6px 10px 8px;max-height:none}
-  #mbt-root .wr{display:flex;align-items:center;gap:8px;margin:4px 0}
-  #mbt-root .wr canvas{width:28px;height:28px;flex:none;image-rendering:pixelated;background:var(--inp);border:1px solid var(--bd);border-radius:6px}
-  #mbt-root .wr .wn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #mbt-root .wr b{font-size:1.1em}
-  #mbt-root .wr small{opacity:.6}
-  #mbt-root .wr .wx{font-size:1em;padding:0 2px;opacity:.45}
-  #mbt-root .wr .wx:hover{opacity:1;color:#ff3b30}
-  #mbt-root .wr.l1 b{color:#ffd400}
-  #mbt-root .wr.l2 b{color:#ff3b30}
-  #mbt-root .wslot{margin-top:6px;min-height:46px;border:2px dashed var(--bd);border-radius:8px;display:flex;align-items:center;justify-content:center;
-    gap:8px;color:#9aa8a4;text-align:center;padding:6px;transition:.12s}
-  #mbt-root .wslot span{font-size:1.6em;line-height:1}
-  #mbt-root .wslot small{font-size:.8em}
-  #mbt-root .wslot.hot{border-color:var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent)}
+  #mbt-root .wl .muted{flex:none}
+  #mbt-root .win.mini .top{height:36px;gap:8px;font-size:.95em}
+  #mbt-root .win.mini .top>svg.ic{color:var(--ac)}
+  #mbt-root .win.mini .body{padding:0}
+  #mbt-root .wr{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;grid-template-rows:auto 4px;column-gap:8px;row-gap:5px;padding:8px 6px 8px 10px;border-top:1px solid #ffffff08;align-items:center}
+  #mbt-root .wr:first-child{border-top:0}
+  #mbt-root .wr canvas{grid-row:1/3;width:30px;height:30px;image-rendering:pixelated;background:var(--inp);border:1px solid var(--bd);border-radius:7px}
+  #mbt-root .wr .wn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  #mbt-root .wr .c{font-variant-numeric:tabular-nums;font-weight:600}
+  #mbt-root .wr .c small{color:var(--tx3);font-weight:400}
+  #mbt-root .wr .wx{width:22px;height:22px;opacity:.5}
+  #mbt-root .wr .wx:hover{opacity:1;color:var(--red)}
+  #mbt-root .wr .bar{grid-column:2/5;height:4px;border-radius:99px;background:var(--inp);overflow:hidden;margin-right:4px}
+  #mbt-root .wr .bar i{display:block;height:100%;border-radius:99px;background:var(--ac)}
+  #mbt-root .wr.l1 .c{color:var(--yel)}
+  #mbt-root .wr.l1 .bar i{background:var(--yel)}
+  #mbt-root .wr.l2 .c{color:var(--red)}
+  #mbt-root .wr.l2 .bar i{background:var(--red)}
+  #mbt-root .wslot span{white-space:nowrap}
+  #mbt-root .wslot{margin:6px 10px 10px;min-height:38px;border:1.5px dashed var(--bd2);border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--tx3);font-size:.92em;padding:4px;transition:.12s}
+  #mbt-root .wslot.hot{border-color:var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,transparent)}
+  #mbt-root .lnk{display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:var(--tx2);font:inherit;cursor:pointer;padding:2px 4px;border-radius:5px}
+  #mbt-root .lnk:hover,#mbt-root .lnk.on{color:var(--ac)}
   html.mbt-pick .item[class*="item-id-"]{cursor:crosshair!important}
-  #mbt-root .help ul{margin:6px 0 6px 18px;padding:0}
-  #mbt-root .help li{margin:5px 0;font-size:.93em;line-height:1.45;color:#cfd9d6;user-select:text}
+  #mbt-root .help{display:flex;flex-direction:column;gap:8px}
+  #mbt-root .help ul{margin:0;padding-left:18px}
+  #mbt-root .help li{margin:4px 0;color:var(--tx2);line-height:1.5;user-select:text}
   #mbt-root .help b{color:var(--ac);font-weight:600}
-  #mbt-root .dock{position:fixed;z-index:2147483100;width:122px;padding:10px;display:none;flex-direction:column;gap:8px;
-    background:rgba(var(--bg),var(--a));border:1px solid var(--ac);border-radius:var(--r);transform:scale(var(--sc));transform-origin:top left;text-align:center}
-  #mbt-root .dock.show{display:flex}
-  #mbt-root .dh{display:flex;justify-content:space-between;align-items:center;padding-bottom:6px;border-bottom:1px solid #ffffff18;color:#cfd9d6}
-  #mbt-root .grip{display:inline-grid;grid-template-columns:repeat(3,5px);gap:3px;padding:8px;cursor:move;touch-action:none;border-radius:8px;flex:none}
-  #mbt-root .grip i{width:5px;height:5px;border-radius:50%;background:#cfd9d6}
-  #mbt-root .grip:hover i{background:var(--ac)}
-  #mbt-root .di{background:none;border:1px solid transparent;border-radius:10px;color:#cfd9d6;padding:8px 4px;cursor:pointer;font:inherit}
-  #mbt-root .di.on{border-color:var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,transparent)}
-  #mbt-root .di .ic{font-size:2.4em;display:block;line-height:1.2}
-  #mbt-root .launcher{position:fixed;z-index:2147483100;height:50px;padding:0 6px 0 2px;color:var(--ac);display:none;align-items:center;gap:2px;
-    background:rgba(9,15,16,.94);border:1px solid var(--ac);border-radius:13px}
+  #mbt-root .launcher{position:fixed;z-index:2147483100;display:none;align-items:center;gap:4px;height:40px;padding:0 12px 0 2px;transform:scale(var(--sc));transform-origin:top left;
+    background:rgba(var(--bg),.95);border:1px solid var(--bd);border-radius:10px;box-shadow:0 10px 26px #0008}
   #mbt-root .launcher.show{display:flex}
-  #mbt-root .launcher .ib{font-size:1.7em;color:var(--ac)}
-  #mbt-root .launcher .logo{display:flex;align-items:center;padding:0 4px}
-  #mbt-root .launcher .logo svg{width:30px;height:30px;display:block}
-  #mbt-root .launcher .logo:hover svg{filter:drop-shadow(0 0 4px var(--ac))}
-  #mbt-root .di small{display:block;font-size:.72em;opacity:.75}
-  #mbt-root .steps{margin:8px 0 0 18px;padding:0;font-size:.93em;line-height:1.45;color:#cfd9d6}
-  #mbt-root .steps li{margin:5px 0}
-  #mbt-root .steps b{color:var(--ac)}
-  #mbt-root .sw{display:flex;gap:8px;flex:1}
-  #mbt-root .sw i{width:26px;height:26px;border-radius:8px;cursor:pointer;border:2px solid transparent}
-  #mbt-root .sw i.on{border-color:#fff}
-  #mbt-root .kb{display:flex;align-items:center;gap:8px;margin:8px 0}
+  #mbt-root .lbtn{display:flex;align-items:center;gap:7px;border:0;background:none;color:var(--tx);font:inherit;font-weight:600;cursor:pointer;padding:0}
+  #mbt-root .lbtn svg{width:22px;height:22px;color:var(--ac)}
+  #mbt-root .lbtn:hover svg{filter:drop-shadow(0 0 4px var(--ac))}
+  #mbt-root .kb{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px solid #ffffff08}
+  #mbt-root .kb:first-child{border-top:0}
   #mbt-root .kb span{flex:1}
-  #mbt-root .kbbtn{min-width:150px;padding:8px 14px}
+  #mbt-root .kbbtn{min-width:130px}
   #mbt-root .kbbtn.rec{border-color:var(--ac);color:var(--ac)}
-  #mbt-root.compact .body{padding:2px 12px 12px}
-  #mbt-root.compact .head{padding:6px 12px 6px 8px}
-  #mbt-root.compact button.b{padding:6px 9px}
-  #mbt-root.compact button.main{padding:9px}
-  #mbt-root.compact input.s,#mbt-root.compact select{padding:7px}
-  #mbt-root.compact .r{margin-top:6px}
-  #mbt-root.compact h4{margin:8px 0 5px}
-  #mbt-root.compact .tg{margin:1px 0;padding:4px 2px}
-  #mbt-root #mbt-toasts{position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:2147483200;pointer-events:none;
+  #mbt-root.compact .body{padding:10px 12px}
+  #mbt-root.compact .tab{gap:8px}
+  #mbt-root.compact .card,#mbt-root.compact .sec{padding:9px}
+  #mbt-root.compact .btn{height:30px}
+  #mbt-root.compact .sc{gap:6px}
+  #mbt-root #mbt-toasts{position:fixed;left:50%;top:28%;transform:translateX(-50%);z-index:2147483200;pointer-events:none;
     display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:90vw}
-  #mbt-root .toast{font-size:28px;font-weight:bold;text-align:center;text-shadow:0 2px 8px #000,0 0 4px #000;animation:mbtfade 4s forwards}
-  @keyframes mbtfade{0%{opacity:0;transform:scale(.92)}8%{opacity:1;transform:none}82%{opacity:1}100%{opacity:0}}
+  #mbt-root .toast{display:flex;align-items:center;gap:10px;padding:11px 16px 11px 12px;background:rgba(18,24,27,.96);border:1px solid #263136;border-left:3px solid var(--tc);
+    border-radius:10px;box-shadow:0 12px 30px #0008;font:600 15px/1.35 "Segoe UI",Inter,system-ui,Arial,sans-serif;color:#fff;animation:mbtfade 4s forwards}
+  #mbt-root .toast svg.ic{color:var(--tc);width:19px;height:19px}
+  @keyframes mbtfade{0%{opacity:0;transform:translateY(-6px)}8%{opacity:1;transform:none}82%{opacity:1}100%{opacity:0}}
   `;
   document.documentElement.appendChild(css);
 
@@ -408,26 +525,33 @@
   root.dataset.v = VER;
   root.innerHTML = `
   <div id="mbt-toasts"></div>
-  <div class="launcher" id="mbt-launcher" title="Bag Tools v${VER}">${gripHTML('dock')}<button class="ib logo" data-act="openDock" title="Otwórz Bag Tools">${LOGO}</button></div>
+  <div class="launcher" id="mbt-launcher" title="Mindaw Addons v${VER}">${gripHTML('dock')}<button class="lbtn" data-act="openDock" title="Otwórz">${LOGO}<span>Mindaw</span></button></div>
 
-  <div class="dock" id="mbt-dock">
-    <div class="dh">${gripHTML('dock')}<button class="ib" data-act="closeAll" title="Zamknij wszystko">×</button></div>
-    ${WINS.filter(w => w.dock !== false).map(w => `<button class="di" data-win="${w.id}" title="${w.title}"><span class="ic">${w.icon}</span>${w.title}</button>`).join('')}
-    <button class="di" data-act="others" title="Ukrywa innych graczy na mapie (tylko u Ciebie)"><span class="ic">👥</span>Gracze<small id="mbt-othst"></small></button>
-  </div>
+  <section class="win app" id="mbt-w-main" style="width:520px">
+    <header class="top">${gripHTML('main')}<span class="logo">${LOGO}</span><span class="brand">Mindaw Addons</span><span class="ver">v${VER}</span><span class="sp"></span>
+      <button class="ibtn" data-min="main" title="Zwiń / rozwiń">${ic('min')}</button><button class="ibtn" data-act="closeAll" title="Zamknij (zostaje ikona M)">${ic('x')}</button></header>
+    <div class="mid">
+      <nav class="rail">
+        ${TABS.filter(t => !['set', 'help'].includes(t.id)).map(railBtn).join('')}
+        <button class="ri" data-act="others">${ic('users')}</button>
+        <span class="rsep"></span>
+        ${TABS.filter(t => ['set', 'help'].includes(t.id)).map(railBtn).join('')}
+      </nav>
+      <div class="body">${TABS.map(t => `<div class="tab" data-tab="${t.id}">${t.html}</div>`).join('')}</div>
+    </div>
+    <div class="err">${ic('warn')}<span><b id="mbt-errt"></b><small id="mbt-errd"></small></span><button class="ibtn" data-act="errclose" title="Zamknij">${ic('x')}</button></div>
+  </section>
 
-  ${WINS.map(w => `
-  <section class="win${w.mini ? ' mini' : ''}" id="mbt-w-${w.id}" style="width:${w.w}px">
-    <header class="head">${gripHTML(w.id)}<span>${w.icon}</span><span class="t">${w.title}${w.mini ? '' : `<small>v${VER}</small>`}</span>
-      ${w.mini ? '' : `<button class="ib" data-min="${w.id}" title="Zwiń / rozwiń">–</button>`}<button class="ib" data-close="${w.id}" title="Zamknij">×</button></header>
-    <div class="body">${w.html}</div>
-  </section>`).join('')}`;
+  <section class="win mini" id="mbt-w-watch" style="width:250px">
+    <header class="top">${gripHTML('watch')}${ic('eye')}<span class="brand">Obserwowane</span><span class="sp"></span><button class="ibtn" data-close="watch" title="Zamknij">${ic('x')}</button></header>
+    <div class="body"><div id="mbt-watchrows"></div>
+      <div class="wslot" data-wslot title="Przeciągnij przedmiot z torby w tę ramkę">${ic('plus')}<span>przeciągnij tutaj ·</span>${wtBtn('lnk', 'wskaż')}</div></div>
+  </section>`;
   document.body.appendChild(root);
 
   const $ = s => root.querySelector(s);
   const $$ = s => [...root.querySelectorAll(s)];
-  const el = { dock: $('#mbt-dock'), icon: $('#mbt-launcher') };
-  WIN_IDS.forEach(id => { el[id] = $('#mbt-w-' + id); });
+  const el = { icon: $('#mbt-launcher'), main: $('#mbt-w-main'), watch: $('#mbt-w-watch') };
   const out = $('#mbt-out');
   let dockOpen = !!S.dock;
   let busy = false;
@@ -437,38 +561,38 @@
   /* ---------- wygląd i pozycje ---------- */
   $('#mbt-sw').innerHTML = COLORS.map((c, i) => `<i data-c="${i}" style="background:${c}"></i>`).join('');
 
-  const winW = id => (id === 'dock' ? 122 : WINS.find(w => w.id === id).w) * S.scale / 100;
+  const winW = id => (id === 'dock' ? 130 : WINS.find(w => w.id === id).w) * S.scale / 100;
   function place() {
     // całe okno w poziomie zawsze na ekranie (inaczej przyciski wypadały za prawą krawędź)
-    for (const id of ['dock', ...WIN_IDS]) {
+    for (const id of WIN_IDS) {
       const p = S.pos[id] || def.pos[id];
       el[id].style.left = clamp(p[0], 0, Math.max(0, innerWidth - winW(id))) + 'px';
       el[id].style.top = clamp(p[1], 0, Math.max(0, innerHeight - 50)) + 'px';
     }
-    el.icon.style.left = el.dock.style.left; el.icon.style.top = el.dock.style.top;
+    const d = S.pos.dock || def.pos.dock;
+    el.icon.style.left = clamp(d[0], 0, Math.max(0, innerWidth - winW('dock'))) + 'px';
+    el.icon.style.top = clamp(d[1], 0, Math.max(0, innerHeight - 50)) + 'px';
     // wysokość treści liczona od miejsca okna i skali – dół okna zawsze mieści się na ekranie (da się przewinąć)
     const sc = S.scale / 100;
     for (const id of WIN_IDS) {
-      const head = el[id].querySelector('.head').offsetHeight || 56;
-      el[id].querySelector('.body').style.maxHeight = Math.max(100, (innerHeight - parseFloat(el[id].style.top) - 12) / sc - head) + 'px';
+      const w = el[id], top = w.querySelector('.top').offsetHeight || 44, err = w.querySelector('.err');
+      const used = top + (err && w.classList.contains('haserr') ? err.offsetHeight : 0);
+      w.querySelector('.body').style.maxHeight = Math.max(100, (innerHeight - parseFloat(w.style.top) - 12) / sc - used) + 'px';
     }
   }
   function paintToggles() { $$('[data-tg]').forEach(b => b.classList.toggle('on', !!S[b.dataset.tg])); }
   function applyFold() { $$('.sec').forEach(s => s.classList.toggle('fold', !!S.fold[s.dataset.sec])); }
   function apply() {
     const th = THEMES[S.theme] || THEMES.ciemny;
-    root.style.setProperty('--ac', COLORS[S.accent]);
+    root.style.setProperty('--ac', COLORS[S.accent] || COLORS[0]);
     root.style.setProperty('--a', S.alpha / 100);
     root.style.setProperty('--sc', S.scale / 100);
-    root.style.setProperty('--r', '14px');
     root.style.setProperty('--fs', S.font + 'px');
-    root.style.setProperty('--bg', th.bg); root.style.setProperty('--ctl', th.ctl);
-    root.style.setProperty('--inp', th.inp); root.style.setProperty('--bd', th.bd);
-    root.classList.add('shadow');
+    for (const k of ['bg', 'card', 'card2', 'inp', 'bd', 'bd2', 'rail']) root.style.setProperty('--' + k, th[k]);
     root.classList.toggle('compact', S.compact);
     $('#mbt-alpha').value = S.alpha; $('#mbt-alpha-l').textContent = S.alpha + '%';
     $('#mbt-scale').value = S.scale; $('#mbt-scale-l').textContent = S.scale + '%';
-    $('#mbt-font').value = S.font; $('#mbt-font-l').textContent = S.font + 'px';
+    $('#mbt-font').value = S.font; $('#mbt-font-l').textContent = S.font + ' px';
     $$('#mbt-sw i').forEach((i, n) => i.classList.toggle('on', n === S.accent));
     $$('[data-theme]').forEach(b => b.classList.toggle('on', b.dataset.theme === S.theme));
     paintToggles();
@@ -477,73 +601,86 @@
   }
   function view() {
     S.open.watch = !!S.watchShow;
-    WIN_IDS.forEach(id => {
-      el[id].classList.toggle('show', !!S.open[id]);
-      el[id].classList.toggle('min', !!S.min[id]);
-    });
-    el.dock.classList.toggle('show', dockOpen);
+    el.main.classList.toggle('show', dockOpen);
+    el.main.classList.toggle('min', !!S.min.main);
+    el.watch.classList.toggle('show', !!S.watchShow);
     el.icon.classList.toggle('show', !dockOpen);
     S.dock = dockOpen;
-    $('[data-act=others]').classList.toggle('on', !!S.hideOthers);
-    $('#mbt-othst').textContent = S.hideOthers ? 'ukryci' : 'widoczni';
-    $$('[data-win]').forEach(b => b.classList.toggle('on', !!S.open[b.dataset.win]));
+    $$('[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === S.tab));
+    $$('[data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === S.tab));
+    const ob = $('[data-act=others]');
+    ob.classList.toggle('on', !!S.hideOthers);
+    ob.title = S.hideOthers ? 'Gracze ukryci – kliknij, żeby pokazać' : 'Ukryj innych graczy (tylko u Ciebie)';
+    $('#mbt-sortlbl').textContent = 'Sortuj: ' + SORT_LBL[S.sortMode];
+    $$('[data-sortmode]').forEach(b => b.classList.toggle('on', b.dataset.sortmode === S.sortMode));
     paintToggles();
     place();
-    if (S.open.torba) { const sn = snap(); updateNote(sn); renderRar(sn); }
+    if (dockOpen && S.tab === 'torba') { const sn = snap(); updateNote(sn); renderRar(sn); }
+    if (dockOpen && S.tab === 'depo') depoInfo();
     save();
   }
-  function arrange(kind) {
-    const sc = S.scale / 100, [dx, dy] = S.pos.dock, list = WINS.filter(w => w.dock !== false);
-    if (kind === 'reset') S.pos = JSON.parse(JSON.stringify(def.pos));
-    else if (kind === 'row') {
-      // tylko otwarte okna; gdy brakuje miejsca, kolejne idą od początku, przesunięte w dół (kaskada)
-      const x0 = dx + 142 * sc;
-      let x = x0, y = dy;
-      list.filter(w => S.open[w.id]).forEach(w => {
-        if (x > x0 && x + w.w * sc > innerWidth - 8) { x = x0 + (y - dy + 40) / 2; y += 40; }
-        S.pos[w.id] = [x, y]; x += w.w * sc + 16;
-      });
-    }
-    place(); save();
+  function arrange() { S.pos = JSON.parse(JSON.stringify(def.pos)); place(); save(); }
+
+  // pasek błędu na dole głównego okna – tylko gdy coś się nie udało; znika przy następnej udanej akcji lub po ×
+  const ERR_RE = /przerywam|nie wykryto|nie widzę|potrzeba \d+ wolnych|nietypowy|jest pełna|nie przeniosła|nie połączyła|nie odłożyła|zostało z depozytu|trwa inna akcja|nie zadziałało|nie rozpoznano/i;
+  function errBar(title, detail = '') {
+    $('#mbt-errt').textContent = title; $('#mbt-errd').textContent = detail;
+    el.main.classList.add('haserr'); place();
+  }
+  function errHide() { if (el.main.classList.contains('haserr')) { el.main.classList.remove('haserr'); place(); } }
+  function errFrom(t) {
+    const lines = String(t).split('\n').map(s => s.trim()).filter(Boolean), i = lines.findIndex(l => ERR_RE.test(l));
+    if (i < 0) return errHide();
+    errBar(lines[i], lines.slice(i + 1).join(' ').slice(0, 300));
+  }
+  // przyciski w trakcie pracy zmieniają się na „Zatrzymaj”
+  function busyUI() {
+    const sb = $('#mbt-sortbtn'), dm = $('#mbt-depomerge'), ds = $('[data-dsort]');
+    sb.classList.toggle('stop', sorting && S.tab === 'torba');
+    $('#mbt-sortlbl').textContent = sorting ? 'Zatrzymaj' : 'Sortuj: ' + SORT_LBL[S.sortMode];
+    dm.classList.toggle('stop', depoBusy); dm.querySelector('span').textContent = depoBusy ? 'Zatrzymaj' : 'Połącz identyczne';
+    ds.classList.toggle('stop', sorting); ds.querySelector('span').textContent = sorting ? 'Zatrzymaj' : 'Sortuj po jakości';
   }
 
   /* ---------- zdarzenia UI ---------- */
   root.addEventListener('click', e => {
     const t = e.target;
     if (rec && !t.closest('[data-kb]')) stopRec();
-    const w = t.closest('[data-win]');
-    if (w && w.dataset.win === 'watch') { S.watchShow = !S.watchShow; view(); bgTick(); }
-    else if (w) { S.open[w.dataset.win] = !S.open[w.dataset.win]; view(); }
+    if (!t.closest('.split')) $('#mbt-sortmenu').classList.remove('show');
+    const go = t.closest('[data-go]');
+    if (go) { S.tab = go.dataset.go; S.min.main = false; view(); }
     const tg = t.closest('[data-tg]');
     if (tg) {
       const o = tg.dataset.tg;
       S[o] = !S[o];
       if (o === 'watchShow') { view(); bgTick(); } else { apply(); save(); }
     }
-    if (t.dataset.close) {
-      S.open[t.dataset.close] = false;
-      if (t.dataset.close === 'watch') S.watchShow = false;
-      view();
-    }
-    if (t.dataset.min) { S.min[t.dataset.min] = !S.min[t.dataset.min]; view(); }
-    const act = (t.closest('[data-act]') || {}).dataset || {};   // closest: klik trafia też w rysunek logo
-    if (act.act === 'closeAll') { dockOpen = false; WIN_IDS.forEach(id => { S.open[id] = false; }); view(); }
+    const cl = t.closest('[data-close]');
+    if (cl && cl.dataset.close === 'watch') { S.watchShow = false; view(); }
+    const mn = t.closest('[data-min]');
+    if (mn) { S.min[mn.dataset.min] = !S.min[mn.dataset.min]; view(); }
+    const act = (t.closest('[data-act]') || {}).dataset || {};   // closest: klik trafia też w rysunek ikony
+    if (act.act === 'closeAll') { dockOpen = false; view(); }
     if (act.act === 'openDock') { dockOpen = true; view(); }
+    if (act.act === 'errclose') errHide();
     if (act.act === 'others') {
       S.hideOthers = window.__mbtHideOthers = !S.hideOthers;
       const ok = hookOthers();
       view();
       toast(!ok ? 'Nie udało się podpiąć – odśwież grę' : S.hideOthers
-        ? '👥 Gracze ukryci – znikną po zmianie mapy lub odświeżeniu'
-        : '👥 Gracze widoczni – pojawią się po zmianie mapy lub odświeżeniu', ok ? OK : RED);
+        ? 'Gracze ukryci – znikną po zmianie mapy lub odświeżeniu'
+        : 'Gracze widoczni – pojawią się po zmianie mapy lub odświeżeniu', ok ? OK : RED);
     }
+    if (t.closest('#mbt-sortcaret')) $('#mbt-sortmenu').classList.toggle('show');
+    const sm = t.closest('[data-sortmode]');
+    if (sm) { S.sortMode = sm.dataset.sortmode; $('#mbt-sortmenu').classList.remove('show'); view(); }
+    if (t.closest('#mbt-sortbtn')) sortBag(S.sortMode);
     if (t.dataset.c) { S.accent = +t.dataset.c; apply(); save(); }
     const th = t.closest('[data-theme]');
     if (th) { S.theme = th.dataset.theme; apply(); save(); }
     const f = t.closest('[data-fold]');
     if (f) { S.fold[f.dataset.fold] = !S.fold[f.dataset.fold]; applyFold(); save(); }
-    const lay = t.closest('[data-layout]');
-    if (lay) arrange(lay.dataset.layout);
+    if (t.closest('[data-layout]')) arrange();
     const rr = t.closest('[data-rar]');
     if (rr) {
       const r = rr.dataset.rar;
@@ -552,20 +689,20 @@
     }
     const hh = t.closest('[data-hist]');
     if (hh) { $('#mbt-search').value = hh.dataset.hist; find(); }
-    if (t.dataset.histclear) { S.history = []; renderHist(); save(); }
+    if (t.closest('[data-histclear]')) { S.history = []; renderHist(); save(); }
     const kb = t.closest('[data-kb]');
     if (kb) startRec(kb.dataset.kb);
-    if (t.dataset.kbclear) { S.keys[t.dataset.kbclear] = []; save(); renderKeys(); }
+    const kc = t.closest('[data-kbclear]');
+    if (kc) { S.keys[kc.dataset.kbclear] = []; save(); renderKeys(); }
     const wa = t.closest('[data-wadd]');
     if (wa) wAdd(wa.dataset.wadd);
-    if (t.dataset.wdel !== undefined) wDel(+t.dataset.wdel);
-    if (t.dataset.wtest) {
-      toast('⚠ Mało: Przykładowa mikstura — 42 szt. (próg 50)', YEL);
-      toast('‼ Bardzo mało: Przykładowa mikstura — 20 szt. (próg 50)', RED);
+    const wd = t.closest('[data-wdel]');
+    if (wd) wDel(+wd.dataset.wdel);
+    if (t.closest('[data-wtest]')) {
+      toast('Mało: Przykładowa mikstura — 42 szt. (próg 50)', YEL);
+      toast('Bardzo mało: Przykładowa mikstura — 20 szt. (próg 50)', RED);
     }
     if (t.closest('[data-wtarget]')) setPick(!pick);
-    const so = t.closest('[data-sort]');
-    if (so) sortBag(so.dataset.sort);
     const ds = t.closest('[data-dsort]');
     if (ds) sortDepo(ds.dataset.dsort);
   });
@@ -583,7 +720,7 @@
   // (inaczej suwak „ucieka” spod kursora i wartość skacze)
   $('#mbt-scale').oninput = e => { $('#mbt-scale-l').textContent = e.target.value + '%'; };
   $('#mbt-scale').onchange = e => { S.scale = +e.target.value; apply(); save(); };
-  $('#mbt-font').oninput = e => { $('#mbt-font-l').textContent = e.target.value + 'px'; };
+  $('#mbt-font').oninput = e => { $('#mbt-font-l').textContent = e.target.value + ' px'; };
   $('#mbt-font').onchange = e => { S.font = +e.target.value; apply(); save(); };
   addEventListener('resize', place);
 
@@ -595,7 +732,7 @@
     w.style.zIndex = ++Z;
   });
 
-  /* przeciąganie: kropki każdego okna (i docka) */
+  /* przeciąganie: kropki każdego okna (i ikony M) */
   let drag = null;
   root.addEventListener('pointerdown', e => {
     const h = e.target.closest('[data-grip]');
@@ -628,6 +765,7 @@
   const COLS = 7, BAG_STRIDE = 6; // każda torba zaczyna się co 6 rzędów (42 miejsca)
   const RAR = { common: 'Pospolity', unique: 'Unikat', heroic: 'Heroiczny', upgraded: 'Ulepszony', legendary: 'Legendarny', artefact: 'Artefakt', none: 'Inne' };
   const RAR_ORDER = Object.keys(RAR);
+  const RCOL = { common: '#9fb0b5', unique: '#e6d36a', heroic: '#ffa23a', upgraded: '#7cc4ff', legendary: '#ff6ad5', artefact: '#ff5a52', none: '#6c7c82' };
   const stats = it => (it && it._cachedStats) || {};
   // loc 'g' = ekwipunek i torby, 'd' = depozyt (potwierdzone diagnostyką 10.2026)
   const fetchRaw = (loc = 'g') => {
@@ -719,27 +857,43 @@
     }
     return null;
   }
+  // nagłówek i karta zakładki Torba: wykryta torba, zajęte miejsca, ile przedmiotów jest do połączenia
+  let statHTML = '';
   function updateNote(sn = snap()) {
     const { items, L } = sn;
-    if (!L.length) return void ($('#mbt-bagnote').textContent = 'Nie widzę toreb – uruchom grę z postacią.');
-    const d = detectBag(items, L);
-    $('#mbt-bagnote').textContent = d
-      ? `Otwarta torba: ${d.k + 1} (${d.how}). Przedmiotów w niej: ${items.filter(i => i.bag === d.k).length}.`
-      : 'Nie wykryto otwartej torby – otwórz torbę w grze (szukanie działa we wszystkich torbach).';
+    let note, html;
+    if (!L.length) { note = 'nie widzę toreb'; html = '<div class="muted">Uruchom grę z postacią.</div>'; }
+    else {
+      const d = detectBag(items, L);
+      if (!d) { note = 'nie wykryto otwartej torby'; html = '<div class="muted">Otwórz torbę w grze, żeby łączyć i sortować. Szukanie działa we wszystkich torbach.</div>'; }
+      else {
+        const used = items.filter(i => i.bag === d.k).length, cap = L[d.k].cap, m = buildPlan(items, d.k).summary.length;
+        note = `otwarta: Torba ${d.k + 1} · wykryta ${d.how}`;
+        html = `<div class="ctx"><div><div class="big">${used}<small> / ${cap}</small></div><div class="muted">zajęte miejsca</div></div>
+          <div class="meter"><i style="width:${Math.min(100, Math.round(used / cap * 100))}%"></i></div><div class="tx2">${m ? m + ' do połączenia' : 'nic do łączenia'}</div></div>`;
+      }
+    }
+    $('#mbt-bagnote').textContent = note;
+    if (html !== statHTML) $('#mbt-bagstat').innerHTML = statHTML = html;
   }
-  setInterval(() => { if (S.open.torba && !busy) { const sn = snap(); updateNote(sn); renderRar(sn); } }, 1000);
+  setInterval(() => {
+    if (!dockOpen || busy) return;
+    if (S.tab === 'torba') { const sn = snap(); updateNote(sn); renderRar(sn); }
+    if (S.tab === 'depo') depoInfo();
+  }, 1000);
 
-  const say = t => { out.style.display = 'block'; out.textContent = t; };
+  const say = t => { out.style.display = 'block'; out.classList.remove('rich'); out.textContent = t; errFrom(t); };
   const join = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' i ' + a[a.length - 1];
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const norm = s => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   // napis na środku ekranu
-  const YEL = '#ffd400', RED = '#ff3b30', OK = '#7dffb2';
+  const YEL = '#ffc53d', RED = '#ff5a52', OK = '#2fd27a';
   function toast(text, color) {
     const box = $('#mbt-toasts');
     while (box.children.length >= 4) box.firstChild.remove();
     const d = document.createElement('div');
-    d.className = 'toast'; d.style.color = color; d.textContent = text;
+    d.className = 'toast'; d.style.setProperty('--tc', color);
+    d.innerHTML = ic(color === OK ? 'check' : color === YEL || color === RED ? 'warn' : 'info') + `<span>${esc(String(text).replace(/^[⚠‼]\uFE0F?\s*/, ''))}</span>`;
     box.appendChild(d);
     setTimeout(() => d.remove(), 4200);
   }
@@ -753,13 +907,13 @@
     if (key === rarKey) return;
     rarKey = key;
     $('#mbt-rar').innerHTML = present.length > 1
-      ? present.map(r => `<button class="chip${S.rar.includes(r) ? ' on' : ''}" data-rar="${esc(r)}" title="Filtr rzadkości">${esc(RAR[r] || r)}</button>`).join('')
+      ? present.map(r => `<button class="chip${S.rar.includes(r) ? ' on' : ''}" data-rar="${esc(r)}" title="Filtr rzadkości"><span class="d" style="background:${RCOL[r] || '#9fb0b5'}"></span>${esc(RAR[r] || r)}</button>`).join('')
       : '';
   }
   function renderHist() {
     $('#mbt-hist').innerHTML = S.history.length
       ? S.history.map(h => `<button class="chip" data-hist="${esc(h)}" title="Szukaj ponownie">${esc(h)}</button>`).join('') +
-        '<button class="chip x" data-histclear="1" title="Wyczyść historię">✕ historia</button>'
+        '<button class="chip x" data-histclear="1" title="Wyczyść historię">× historia</button>'
       : '';
   }
   function addHist(q) {
@@ -789,10 +943,21 @@
       const tag = o.rar !== 'common' && o.rar !== 'none' ? ` [${RAR[o.rar] || o.rar}]` : '';
       return `• ${name}${tag} — ${join(parts)}`;
     });
-    if (names.length > 60) lines.push(`…i ${names.length - 60} więcej`);
-    const text = `Znaleziono ${names.length} poz.` + (S.showCount ? `, razem ${total} szt.` : '') + '\n' + lines.join('\n');
-    say(text);
-    S.last = text.slice(0, 2000); save();
+    S.lastFind = {
+      head: `Znaleziono ${names.length} poz.` + (S.showCount ? ` · razem ${total} szt.` : ''), more: Math.max(0, names.length - 60),
+      rows: names.slice(0, 60).map(name => ({ n: name, r: by[name].rar, b: Object.keys(by[name].bags).map(Number).sort((a, b) => a - b).map(k => [k, by[name].bags[k]]) })),
+    };
+    renderFind(S.lastFind); save();
+  }
+  // wyniki szukania jako lista: nazwa, rzadkość, gdzie leży (T1 ×4 …)
+  function renderFind(f) {
+    if (!f || !Array.isArray(f.rows)) return;
+    out.style.display = 'block'; out.classList.add('rich'); errHide();
+    out.innerHTML = `<div class="fh">${esc(f.head)}</div>` + f.rows.map(r => {
+      const pill = r.r !== 'common' && r.r !== 'none' ? `<span class="pill" style="color:${RCOL[r.r] || '#9fb0b5'}">${esc(RAR[r.r] || r.r)}</span>` : '';
+      const loc = r.b.map(([k, c]) => `<span>${k < 0 ? 'poza torbami' : 'T' + (k + 1)}${S.showCount ? ' ×' + c : ''}</span>`).join('');
+      return `<div class="li"><span class="nm"><b>${esc(r.n)}</b>${pill}</span><span class="loc">${loc}</span></div>`;
+    }).join('') + (f.more ? `<div class="fh">…i ${f.more} więcej</div>` : '');
   }
 
   function dups() {
@@ -919,7 +1084,7 @@
   // wykonanie planu sortowania: po jednym przeniesieniu, sprawdzenie miejsca i ilości, przerwanie przy pierwszym błędzie
   // o: { label, moves, mode, cmd(m) → komenda, loc ('g' | 'd'), out(t) }
   async function runSort(o) {
-    busy = sorting = true; stopSort = false;
+    busy = sorting = true; stopSort = false; busyUI();
     const occ = i => o.loc !== 'g' || i.st === 0, t0 = Date.now();
     let done = 0, msg = '';
     try {
@@ -938,7 +1103,7 @@
         done++;
         await sleep(200);
       }
-    } finally { busy = sorting = false; }
+    } finally { busy = sorting = false; busyUI(); }
     o.out(`${o.label}: sortowanie ${SORTS[o.mode].n} – wykonano ${done} z ${o.moves.length} przeniesień (${((Date.now() - t0) / 1000).toFixed(1)} s).` + (msg ? '\n' + msg : ''));
   }
   async function sortBag(mode) {
@@ -979,8 +1144,8 @@
 
   function renderWList() {
     $('#mbt-wlist').innerHTML = S.watch.length
-      ? S.watch.map((w, i) => `<div class="wl"><span class="wn" title="${esc(w.name)}">${esc(w.name)}</span><span>alert &lt;</span><input class="s n" type="number" min="1" data-wwarn="${i}" value="${w.warn}"><button class="ib" data-wdel="${i}" title="Przestań obserwować">✕</button></div>`).join('')
-      : '<div class="note">Brak obserwowanych przedmiotów.</div>';
+      ? S.watch.map((w, i) => `<div class="wl"><span class="wn" title="${esc(w.name)}">${esc(w.name)}</span><span class="muted">alert poniżej</span><input class="num" type="number" min="1" data-wwarn="${i}" value="${w.warn}"><button class="ibtn" data-wdel="${i}" title="Przestań obserwować">${ic('x')}</button></div>`).join('')
+      : '<div class="muted">Brak obserwowanych przedmiotów.</div>';
   }
   function wFind() {
     const terms = norm($('#mbt-wname').value).split(/\s+/).filter(Boolean);
@@ -1022,13 +1187,13 @@
     } catch {}
     S.watch.push(w); S.watchShow = true;
     renderWList(); view(); bgTick();
-    toast('👁 Obserwuję: ' + it.name, OK);
+    toast('Obserwuję: ' + it.name, OK);
   }
   let pick = false, pickTimer = 0, press = null;
   function setPick(on) {
     pick = on; clearTimeout(pickTimer);
     document.documentElement.classList.toggle('mbt-pick', on);
-    $$('[data-wtarget]').forEach(b => { b.textContent = on ? '… kliknij przedmiot w torbie (Esc)' : '🎯 Wskaż w grze'; b.classList.toggle('on', on); });
+    $$('[data-wtarget]').forEach(b => { b.querySelector('.wtl').textContent = on ? 'kliknij przedmiot w torbie (Esc)' : b.dataset.lbl; b.classList.toggle('on', on); });
     if (on) pickTimer = setTimeout(() => setPick(false), 20000);
   }
   // tryb wskazywania: klik w przedmiot w grze jest przechwycony (przedmiot NIE jest używany)
@@ -1145,17 +1310,18 @@
   }
   let rowsHTML = '';
   function watchTick(sn) {
-    if (!S.watch.length) { if (S.open.watch) $('#mbt-watchrows').innerHTML = rowsHTML = ''; return; }
+    if (!S.watch.length) { $('[data-go=watch]').classList.remove('alert'); if (S.open.watch) $('#mbt-watchrows').innerHTML = rowsHTML = ''; return; }
     const cnt = {}, refs = {}, now = Date.now();
     sn.items.forEach(i => {
       if (i.st !== 0) return;
       cnt[i.name] = (cnt[i.name] || 0) + i.amount;
       if (!refs[i.name]) refs[i.name] = i.ref;
     });
+    $('[data-go=watch]').classList.toggle('alert', S.watch.some(w => wLevel(cnt[w.name] || 0, w) > 0));
     if (S.open.watch) {
       const html = S.watch.map((w, i) => {
         const n = cnt[w.name] || 0;
-        return `<div class="wr l${wLevel(n, w)}" title="${esc(w.name)}"><canvas width="28" height="28" data-wi="${i}"></canvas><span class="wn">${esc(w.name)}</span><b>${n}</b><small>/${w.warn}</small><button class="ib wx" data-wdel="${i}" title="Przestań obserwować">✕</button></div>`;
+        return `<div class="wr l${wLevel(n, w)}" title="${esc(w.name)}"><canvas width="28" height="28" data-wi="${i}"></canvas><span class="wn">${esc(w.name)}</span><span class="c">${n}<small> / ${w.warn}</small></span><button class="ibtn wx" data-wdel="${i}" title="Przestań obserwować">${ic('x')}</button><span class="bar"><i style="width:${Math.min(100, Math.round(n / w.warn * 100))}%"></i></span></div>`;
       }).join('');
       // przebudowa tylko przy zmianie – inaczej kliknięcia w ✕ ginęły przy odświeżaniu co 2 s
       if (html !== rowsHTML) { $('#mbt-watchrows').innerHTML = rowsHTML = html; }
@@ -1164,7 +1330,7 @@
     S.watch.forEach(w => {
       const n = cnt[w.name] || 0, l = wLevel(n, w), st = wState[w.name] || (wState[w.name] = { l: 0, t: 0 });
       if (l > 0 && (l > st.l || (S.watchRemind > 0 && now - st.t >= S.watchRemind * 1000))) {
-        toast(l === 2 ? `‼ Bardzo mało: ${w.name} — ${n} szt. (próg ${w.warn})` : `⚠ Mało: ${w.name} — ${n} szt. (próg ${w.warn})`, l === 2 ? RED : YEL);
+        toast(l === 2 ? `Bardzo mało: ${w.name} — ${n} szt. (próg ${w.warn})` : `Mało: ${w.name} — ${n} szt. (próg ${w.warn})`, l === 2 ? RED : YEL);
         st.t = now;
       }
       st.l = l;
@@ -1212,7 +1378,7 @@
     LOOT.log = LOOT.log.slice(-1500);
     try { localStorage.setItem(LKEY, JSON.stringify(LOOT)); } catch {}
     renderLoot();
-    if (S.lootToast) toast(rar === 'rune' ? `🎁 Smocze Runy ×${n}` : `🎁 ${LNAME[rar]}: ${name}`, LCOL[rar] || YEL);
+    if (S.lootToast) toast(rar === 'rune' ? `Smocze Runy ×${n}` : `${LNAME[rar]}: ${name}`, LCOL[rar] || YEL);
   }
 
   // sygnały źródła przedmiotu: okno łupu / skrzynka (liczymy) vs depozyt, handel, aukcje, sklep, poczta (pomijamy)
@@ -1394,7 +1560,31 @@
   /* ---------- depozyt: łączenie identycznych stosów na otwartej stronie (przez torbę) ----------
      Komendy z nagrania użytkownika (10.2026): depo&get=ID&x&y (depozyt → torba), depo&put=ID&x&y (torba → depozyt).
      W depozycie gra nie łączy stosów, więc łączymy w torbie komendą moveitem i odkładamy na pierwotne miejsca. */
-  const dsay = t => { const o = $('#mbt-depores'); o.style.display = 'block'; o.textContent = t; };
+  const dsay = t => { const o = $('#mbt-depores'); o.style.display = 'block'; o.classList.remove('rich'); o.textContent = t; errFrom(t); };
+  // postęp łączenia w depozycie: pasek i lista przedmiotów (zrobione / w trakcie / czeka / błąd)
+  function depoProg(st, title) {
+    const o = $('#mbt-depores'), ok = st.filter(x => x.s === 'ok').length, I = { ok: 'check', run: 'load', bad: 'warn', wait: 'dot' };
+    o.style.display = 'block'; o.classList.add('rich');
+    o.innerHTML = `<div class="ctitle">${esc(title)}<span class="sp"></span><span class="cnt">${ok} z ${st.length}</span></div>
+      <div class="meter"><i style="width:${st.length ? Math.round(ok / st.length * 100) : 0}%"></i></div>
+      <div class="steps">${st.map(x => `<div class="st ${x.s}">${ic(I[x.s])}<span class="grow">${esc(x.n)}</span><span>${esc(x.i)}</span></div>`).join('')}</div>`;
+  }
+  // karta nad wynikiem: otwarta strona, ile przedmiotów do połączenia i ile wolnych miejsc w torbach potrzeba
+  let depoHTML = '';
+  function depoInfo() {
+    let head = 'otwórz depozyt w grze', html = '';
+    if (depoOpen()) {
+      const vis = visibleIds(), n = readItems('d').filter(i => vis.has(i.id)).length, g = depoGroups();
+      head = `otwarta strona · ${n} / ${DCOLS * DROWS}`;
+      if (g.length) {
+        const need = Math.max(...g.map(x => x.length)), free = freeBagCells().length;
+        html = `<div class="ctx"><div><div class="big">${g.length}<small> przedm.</small></div><div class="muted">do połączenia</div></div><span class="sp"></span>
+          <span class="chip ${free >= need ? 'on' : 'bad'}">potrzeba ${need} wolnych w torbach · masz ${free}</span></div>`;
+      } else html = '<div class="muted">Na tej stronie nie ma czego łączyć.</div>';
+    }
+    $('#mbt-depohead').textContent = head;
+    if (html !== depoHTML) $('#mbt-depoplan').innerHTML = depoHTML = html;
+  }
   const depoOpen = () => [...document.querySelectorAll('.depo')].some(n => !root.contains(n) && n.getBoundingClientRect().width > 100);
   // grupy: niepełne, identyczne stosy z limitem, widoczne na otwartej stronie (co najmniej 2)
   function depoGroups() {
@@ -1438,15 +1628,17 @@
     if (!groups.length) return dsay('Na otwartej stronie depozytu nie ma czego łączyć.');
     const need = Math.max(...groups.map(g => g.length)), free = freeBagCells().length;
     if (free < need) return dsay(`Potrzeba ${need} wolnych miejsc w torbach (masz ${free}). Zwolnij miejsce i kliknij ponownie.`);
-    busy = depoBusy = true; depoStop = false;
+    busy = depoBusy = true; depoStop = false; busyUI(); errHide();
     const t0 = Date.now(), log = [], all = new Set();
-    let done = 0, err = '';
+    const st = groups.map(g => ({ n: g[0].name, s: 'wait', i: g.map(i => i.amount).sort((a, b) => b - a).join(' · ') }));
+    let done = 0, err = '', stopped = false;
     try {
-      for (const g of groups) {
-        if (depoStop) { err = 'Zatrzymano na Twoje kliknięcie.'; break; }
+      for (const [gi, g] of groups.entries()) {
+        if (depoStop) { stopped = true; break; }
         const name = g[0].name, before = g.map(i => i.amount).sort((a, b) => b - a);
         const slots = g.map(i => [i.x, i.y]).sort((a, b) => a[1] - b[1] || a[0] - b[0]), taken = [];
-        dsay(`Łączę „${name}” (${done + 1} z ${groups.length})…\n${log.join('\n')}`);
+        st[gi].s = 'run'; st[gi].i = 'łączę w torbie…';
+        depoProg(st, 'Łączenie identycznych stosów');
         // 1) z depozytu do torby, każdy stos na wolne miejsce
         for (const i of g) {
           const cell = freeBagCells()[0];
@@ -1481,14 +1673,17 @@
         }
         const after = readItems('d').filter(i => taken.includes(i.id)).map(i => i.amount).sort((a, b) => b - a);
         log.push(`• ${name}: ${before.join(', ')} → ${after.join(', ') || '–'}`);
-        if (err) { err = `„${name}”: ${err} – przerywam.`; break; }
+        st[gi].s = err ? 'bad' : 'ok'; st[gi].i = `${before.join(' · ')} → ${after.join(' · ') || '–'}`;
+        if (err) { err = `„${name}”: ${err} – przerwano.`; break; }
         done++;
       }
-    } finally { busy = depoBusy = false; }
+    } finally { busy = depoBusy = false; busyUI(); }
     const left = readItems('g').filter(i => all.has(i.id));
-    dsay(`Depozyt: połączono ${done} z ${groups.length} przedmiotów (${((Date.now() - t0) / 1000).toFixed(1)} s)\n` + log.join('\n') +
-      (err ? '\n\n' + err : '') +
-      (left.length ? `\n\nW torbie zostało z depozytu: ${left.map(i => `${i.name} ×${i.amount}`).join(', ')} – odłóż je ręcznie do depozytu.` : ''));
+    const leftTxt = left.length ? `W torbie zostało z depozytu: ${left.map(i => `${i.name} ×${i.amount}`).join(', ')} – odłóż je ręcznie do depozytu.` : '';
+    depoProg(st, `${stopped ? 'Zatrzymano' : err ? 'Przerwano' : 'Gotowe'} · ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+    if (err) errBar(err, leftTxt || 'Stosy wróciły na swoje miejsca w depozycie.');
+    else if (leftTxt) errBar('Część stosów została w torbie', leftTxt);
+    depoInfo();
   }
 
   /* ---------- ukrywanie innych graczy (wg skryptu użytkownika „usuwacz innych”, 10.2026) ----------
@@ -1543,7 +1738,7 @@
 
   $('#mbt-find').onclick = find;
   $('#mbt-clear').onclick = () => {
-    $('#mbt-search').value = ''; S.rar = []; S.last = ''; rarKey = ''; renderRar(); out.style.display = 'none'; save();
+    $('#mbt-search').value = ''; S.rar = []; S.lastFind = null; rarKey = ''; renderRar(); out.style.display = 'none'; errHide(); save();
   };
   $('#mbt-search').addEventListener('keydown', e => { if (e.key === 'Enter') find(); });
   $('#mbt-wname').addEventListener('keydown', e => { if (e.key === 'Enter') wFind(); });
@@ -1562,7 +1757,7 @@
   };
 
   /* ---------- kopia ustawień (eksport / import) ---------- */
-  const EXPORT_SKIP = ['last', 'verified', 'sv'];
+  const EXPORT_SKIP = ['lastFind', 'verified', 'sv', 'tab'];
   $('#mbt-exp').onclick = async () => {
     const o = {};
     Object.keys(def).filter(k => !EXPORT_SKIP.includes(k)).forEach(k => { o[k] = S[k]; });
@@ -1608,9 +1803,9 @@
 
   /* ---------- własne skróty klawiszowe (1–3 klawisze naraz) ---------- */
   const ACTIONS = [
-    { id: 'toggle', label: 'Otwórz/zamknij okno', run() { dockOpen = !dockOpen; if (!dockOpen) WIN_IDS.forEach(id => { S.open[id] = false; }); view(); } },
-    { id: 'merge', label: 'Połącz identyczne (torba)', run() { S.open.torba = dockOpen = true; view(); merge(); } },
-    { id: 'find', label: 'Szukaj przedmiotu', run() { S.open.torba = dockOpen = true; S.fold.search = false; applyFold(); view(); $('#mbt-search').focus(); } },
+    { id: 'toggle', label: 'Otwórz/zamknij okno', run() { dockOpen = !dockOpen; view(); } },
+    { id: 'merge', label: 'Połącz identyczne (torba)', run() { dockOpen = true; S.tab = 'torba'; view(); merge(); } },
+    { id: 'find', label: 'Szukaj przedmiotu', run() { dockOpen = true; S.tab = 'torba'; S.fold.search = false; S.min.main = false; applyFold(); view(); $('#mbt-search').focus(); } },
   ];
   const tok = c => /^Alt/.test(c) ? 'Alt' : /^Control/.test(c) ? 'Ctrl' : /^Shift/.test(c) ? 'Shift' : /^(Meta|OS)/.test(c) ? 'Meta' : c;
   const NAMES = { Space: 'Spacja', Escape: 'Esc', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Backquote: '`', Minus: '-', Equal: '=' };
@@ -1622,10 +1817,11 @@
   let rec = null;
   const down = new Set();
   function renderKeys() {
+    $('#mbt-kmerge').textContent = (S.keys.merge || []).length ? fmt(S.keys.merge) : '';
     $('#mbt-keys').innerHTML = ACTIONS.map(a => {
       const on = rec && rec.id === a.id, k = S.keys[a.id] || [];
       const txt = on ? (rec.seq.length ? fmt(rec.seq) + ' …' : 'Naciśnij klawisze…') : (k.length ? fmt(k) : '—');
-      return `<div class="kb"><span>${a.label}</span><button class="b kbbtn${on ? ' rec' : ''}" data-kb="${a.id}" title="Kliknij i naciśnij 1–3 klawisze naraz">${txt}</button><button class="ib" data-kbclear="${a.id}" title="Usuń skrót">✕</button></div>`;
+      return `<div class="kb"><span>${a.label}</span><button class="btn sm kbbtn${on ? ' rec' : ''}" data-kb="${a.id}" title="Kliknij i naciśnij 1–3 klawisze naraz">${txt}</button><button class="ibtn" data-kbclear="${a.id}" title="Usuń skrót">${ic('x')}</button></div>`;
     }).join('');
   }
   function startRec(id) { rec = { id, seq: [], held: new Set() }; $('#mbt-keynote').textContent = ''; renderKeys(); }
@@ -1688,5 +1884,5 @@
   window.__mbtHideOthers = !!S.hideOthers;
   hookOthers(); setInterval(hookOthers, 2000);
   apply(); view();
-  if (S.last) say('Ostatni wynik szukania:\n' + S.last);
+  if (S.lastFind) renderFind(S.lastFind);
 })();
