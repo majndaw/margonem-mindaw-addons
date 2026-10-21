@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.22.0** (20.10.2026).
+Aktualna wersja: **0.23.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -180,6 +180,22 @@ Implementować dopiero po wyniku „Kopiuj wynik” z gry. Starsze fragmenty kon
 ```
 
 Wyniki wklejone przez użytkownika: przed użyciem usuń z nich wszystko, co wygląda na dane logowania lub klucze sesji.
+
+## Depozyt: szukanie i odkładanie (0.23.0)
+
+`dfind()` – szuka w `readItems('d')` (strony załadowane przez grę), pokazuje „ta strona” (widoczne) / „inna strona” –
+bez numeru strony (numeracja pól między stronami niepotwierdzona). `depoPut()` – wybrany przedmiot (`dpSel`, lista
+`dpNames()`) z toreb na wolne pola prostokąta otwartej strony (`depoPage()`), `depo&put`, `waitFor` po każdym kroku,
+przerwa 200 ms, przerwanie przy błędzie, zatrzymanie kolejnym kliknięciem. Pusta strona tylko przy pustym depozycie.
+Podświetlanie: `flash(ids)` / `highlight(name, loc)` – nakładka `.mbt-flash` w `#mbt-root` (gra nie jest zmieniana).
+
+## Czeka na dane z gry (prośby użytkownika, 21.10.2026)
+
+- **Łączenie/sortowanie na wszystkich stronach depozytu** – potrzebne „Zbadaj depozyt” na koncie z kilkoma stronami
+  (konto testowe ma 1 stronę): jak numerowane są pola kolejnych stron i jak przełączać strony.
+- **Chodzenie za strzałką questową przyciskiem** – Ustawienia → „Badanie gry” (klucze Engine/postaci z quest/arrow/
+  follow/path…, nagrywanie komend). Automatyczne wznawianie po przerwaniu **odrzucone** (łamie zasadę 4 – nic bez
+  kliknięcia; najbardziej ryzykowne dla konta). Zamiast tego: napis + dźwięk „śledzenie przerwane” i wznowienie skrótem.
 
 ## Przycisk Mindaw w pasku przycisków gry (prośba użytkownika, 21.10.2026)
 
