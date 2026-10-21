@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.22.0
+// @version      0.23.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.22.0';
+  const VER = '0.23.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -124,6 +124,13 @@
            <button class="btn grow" data-dsort="qual" title="Od najrzadszych: artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity">${ic('sort')}<span>Sortuj po jakości</span></button>
          </div>
          <div class="card" id="mbt-depoplan"></div>
+         <div class="sec" data-sec="dsearch"><h4 data-fold="dsearch"><span>Szukaj w depozycie</span><i class="chev">▾</i></h4><div class="sc">
+           <div class="inp">${ic('search')}<input id="mbt-dsearch" placeholder="Nazwa przedmiotu… (Enter)" title="Szuka na stronach, które gra załadowała (po otwarciu depozytu: 1–8)"><button class="ibtn" id="mbt-dsclear" title="Wyczyść">${ic('x')}</button></div>
+           <div class="out" id="mbt-dsout"></div></div></div>
+         <div class="sec" data-sec="dput"><h4 data-fold="dput"><span>Odłóż z torby do depozytu</span><i class="chev">▾</i></h4><div class="sc">
+           <div class="chips" id="mbt-dpnames"></div>
+           <button class="btn" id="mbt-dput" title="Odkłada wszystkie stosy wybranego przedmiotu z toreb na wolne pola otwartej strony">${ic('depo')}<span>Odłóż wybrane na tę stronę</span></button>
+           <div class="note">${ic('info')}<span>Wybierz przedmiot, a skrypt odłoży <b>wszystkie jego stosy z toreb</b> na wolne pola otwartej strony depozytu – po jednym, każdy krok sprawdzany.</span></div></div></div>
          <div class="out" id="mbt-depores"></div>
          <div class="note">${ic('info')}<span>Działa tylko na <b>otwartej stronie</b>. Łączenie: stosy idą do torby, łączą się do limitu i wracają na swoje miejsca. Sortowanie: po jednym, tylko na wolne pola (potrzebne 1 wolne miejsce). Każdy krok jest sprawdzany, ponowny klik zatrzymuje.</span></div>` +
         sec('depostudy', 'Badanie depozytu (dla autora)',
@@ -182,14 +189,15 @@
            <div class="note">${ic('info')}<span>Kliknij skrót i naciśnij 1, 2 lub 3 klawisze naraz. Esc – anuluj. Skrótów przeglądarki (np. Ctrl+W) nie da się przejąć.</span></div>
            <div class="note" id="mbt-keynote"></div>
            <button class="btn" id="mbt-keysreset">Przywróć domyślne skróty</button>`) +
-        sec('gamebtn', 'Przycisk w pasku gry – badanie',
-          `<div class="note">${ic('info')}<span>Przygotowanie do przycisku Mindaw w pasku przycisków gry (jak questy czy mapa), który da się przesuwać jak inne. Te przyciski <b>tylko czytają</b> – nic nie wysyłają do gry.</span></div>
+        sec('gamebtn', 'Badanie gry (dla autora)',
+          `<div class="note">${ic('info')}<span>Przygotowanie nowych funkcji: przycisk Mindaw w pasku gry i strzałka questowa. Te przyciski <b>tylko czytają i zapisują</b> – nic nie wysyłają do gry.</span></div>
            <ol class="howto">
              <li>Kliknij <b>Zbadaj</b>.</li>
-             <li>Przesuń w grze dowolny przycisk z paska (np. mapę) w inne miejsce lub róg, tak jak zwykle.</li>
-             <li>Kliknij <b>Zbadaj</b> jeszcze raz, potem <b>Kopiuj wynik</b> i wklej go autorowi.</li>
+             <li><b>Przycisk w pasku:</b> przesuń w grze dowolny przycisk z paska (np. mapę) w inne miejsce, potem znowu <b>Zbadaj</b>.</li>
+             <li><b>Strzałka questowa:</b> kliknij <b>Nagrywaj</b>, włącz w grze chodzenie za strzałką questową tak jak zwykle, poczekaj kilka kroków, przerwij je ruchem postaci, potem <b>Zatrzymaj</b> i znowu <b>Zbadaj</b>.</li>
+             <li>Kliknij <b>Kopiuj wynik</b> i wklej go autorowi.</li>
            </ol>
-           <div class="row"><button class="btn grow" id="mbt-uistudy">${ic('search')}Zbadaj</button><button class="btn grow" id="mbt-uicopy">${ic('copy')}Kopiuj wynik</button></div>
+           <div class="row"><button class="btn grow" id="mbt-uistudy">${ic('search')}Zbadaj</button><button class="btn grow" id="mbt-uirec">⏺ Nagrywaj</button><button class="btn grow" id="mbt-uicopy">${ic('copy')}Kopiuj wynik</button></div>
            <div class="note" id="mbt-uinote"></div>
            <div class="out" id="mbt-uiout"></div>`) +
         sec('backup', 'Kopia ustawień',
@@ -235,6 +243,8 @@
             <li>Potrzeba tylu wolnych miejsc w torbach, ile stosów ma najliczniejszy przedmiot – jeśli brakuje, skrypt mówi ile i nic nie robi. Branie i odkładanie w depozycie jest darmowe.</li>
             <li>Każdy krok jest sprawdzany. Przy błędzie skrypt przerywa i odkłada stosy z powrotem do depozytu; jeśli coś zostanie w torbie, wypisze co. W trakcie przycisk zmienia się na <b>Zatrzymaj</b> (zatrzymuje po bieżącym przedmiocie). Karta nad wynikiem pokazuje, ile przedmiotów jest do połączenia i ile wolnych miejsc w torbach potrzeba.</li>
             <li><b>Sortowanie depozytu</b> – przycisk <b>Sortuj po jakości</b> układa otwartą stronę depozytu od najrzadszych (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity), a w obrębie jakości po nazwie. Przedmioty są przenoszone w obrębie depozytu, po jednym, każdy krok sprawdzany; potrzebne 1 wolne miejsce na stronie.</li>
+            <li><b>Szukaj w depozycie</b> – wpisz nazwę i Enter. Szuka na stronach, które gra załadowała (po otwarciu depozytu: 1–8), i pokazuje, czy przedmiot leży na otwartej stronie, czy na innej. Kliknięcie wyniku podświetla go na otwartej stronie.</li>
+            <li><b>Odłóż z torby do depozytu</b> – wybierz przedmiot z listy (to, co masz w torbach) i kliknij przycisk: wszystkie jego stosy trafią na wolne pola <b>otwartej strony</b>, po jednym, każdy krok sprawdzany. Gdy miejsca zabraknie, reszta zostaje w torbie. Ponowne kliknięcie zatrzymuje.</li>
             <li>Sekcja <b>Badanie depozytu</b> (Zbadaj, Nagrywaj, Kopiuj) tylko czyta i zapisuje – przydaje się, gdy coś nie działa.</li>
           </ul>`) +
         sec('h-search', 'Szukanie przedmiotów',
@@ -243,6 +253,7 @@
             <li>Polskie znaki nie są potrzebne („zwoj” znajdzie „Zwój”). Kilka słów oznacza, że wszystkie muszą pasować.</li>
             <li>Pod polem są <b>ostatnie hasła</b> (klik = szukaj ponownie) oraz <b>przyciski rzadkości</b> – pojawiają się dla rzadkości, które masz w plecaku. Można szukać samą rzadkością, bez nazwy.</li>
             <li>Przełącznik <b>Pokaż liczbę sztuk</b> dopisuje do wyników łączną ilość w każdej torbie. Ostatni wynik szukania jest zapamiętywany i wraca po odświeżeniu gry.</li>
+            <li><b>Kliknięcie wyniku</b> podświetla przedmiot na siatce torby w grze (miga przez 3 s). Jeśli leży w innej torbie, dostaniesz napis, którą otworzyć.</li>
             <li><b>Duplikaty</b> wypisuje przedmioty, które w otwartej torbie leżą w kilku stosach. <b>×</b> w polu szukania kasuje pole, filtry i wynik.</li>
           </ul>`) +
         sec('h-watch', 'Obserwowane przedmioty',
@@ -282,7 +293,7 @@
           </ul>`) +
         sec('h-backup', 'Kopia ustawień',
           `<ul>
-            <li><b>Przycisk w pasku gry – badanie</b> (Ustawienia): tylko czyta, jak gra układa swoje przyciski (questy, mapa…) – przygotowanie do przycisku Mindaw, który będzie można przesuwać jak przyciski gry.</li>
+            <li><b>Badanie gry</b> (Ustawienia): tylko czyta i nagrywa – jak gra układa swoje przyciski (questy, mapa…) i jak działa chodzenie za strzałką questową. Przygotowanie do kolejnych funkcji.</li>
             <li><b>Eksportuj do schowka</b> zamienia ustawienia (okna, skróty, obserwowane, historię) w tekst. <b>Importuj z pola</b> wczytuje taki tekst – przydatne przy nowej przeglądarce lub po reinstalacji.</li>
             <li>Dziennik zdobyczy nie jest częścią kopii ustawień.</li>
           </ul>`) +
@@ -302,6 +313,7 @@
             <li>Przeciąganie przedmiotu na ramkę, pobieranie grafiki przedmiotu oraz rozpoznawanie źródła dropów (okno łupu, skrzynki).</li>
             <li>Depozyt: komendy depo&amp;get/put i łączenie w torbie sprawdzone tylko na stronie testowej (komendy z nagrania gry 20.10.2026); zachowanie przy kilku stronach depozytu – nieznane (skrypt działa tylko na przedmiotach widocznych na ekranie).</li>
             <li>Ukrywanie graczy: czy gracze widoczni w chwili włączenia znikają od razu, czy dopiero po zmianie mapy (skrypt zakłada to drugie).</li>
+            <li>Odkładanie do depozytu na pustą stronę działa tylko, gdy cały depozyt jest pusty (inaczej skrypt nie wie, która to strona). Szukanie w depozycie nie podaje numeru strony – tylko „ta strona” / „inna strona”.</li>
             <li>Sortowanie depozytu: 8 rzędów na stronie (wynika z licznika wolnych miejsc 89 + 23 przedmioty = 112) i numeracja pól na kolejnych stronach – niepotwierdzone; przy nietypowym układzie skrypt odmawia sortowania.</li>
             <li>Sortowanie: czy komenda przeniesienia na wolne miejsce działa w grze tak samo jak przy łączeniu stosów; kolejność „jakości” (artefakt, legendarny, ulepszony, heroiczny, unikatowy, pospolity) i to, że każdy przedmiot zajmuje 1 pole.</li>
             <li>Czy gra po upuszczeniu przedmiotu na okno dodatku na pewno odkłada go na miejsce (bez pytania o wyrzucenie) – sprawdzone tylko na stronie testowej.</li>
@@ -309,6 +321,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.23.0</b> – kliknięcie wyniku szukania <b>podświetla przedmiot</b> w torbie (lub na stronie depozytu); <b>szukanie w depozycie</b>; <b>odkładanie z torby do depozytu</b> wybranego przedmiotu jednym kliknięciem; badanie gry rozszerzone o strzałkę questową i nagrywanie.</li>
             <li><b>0.22.0</b> – zakładka <b>Dodatki</b>: każdy dodatek (Torba, Depozyt, Obserwowane, Zdobycze, Ukrywanie graczy) instaluje się i wyłącza osobno; wyłączony nie działa wcale.</li>
             <li><b>0.21.1</b> – Ustawienia: badanie paska przycisków gry (tylko odczyt) – przygotowanie do przycisku Mindaw w pasku gry.</li>
             <li><b>0.21.0</b> – <b>nowy wygląd</b>: jedno okno z paskiem zakładek (Torba, Depozyt, Obserwowane, Zdobycze, Ustawienia, Pomoc), ikony zamiast emoji, karty, czerwony pasek błędu na dole tylko przy błędzie, lista wyników szukania, postęp łączenia w depozycie, nowe małe okienko Obserwowane z paskami zapasu, nowe napisy na ekranie i ikona M po zamknięciu.</li>
@@ -476,6 +489,11 @@
   #mbt-root .logbox{background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--tx2);font-size:.9em;white-space:pre-wrap;max-height:240px;overflow:auto;user-select:text}
   #mbt-root .logbox:empty::before{content:'Brak zapisanych dropów.';color:var(--tx3)}
   #mbt-root .fh{color:var(--tx3);font-size:.92em;margin-bottom:2px}
+  #mbt-root .mbt-flash{position:fixed;z-index:2147483150;pointer-events:none;border:2px solid var(--ac);border-radius:7px;
+    box-shadow:0 0 14px var(--ac),inset 0 0 10px color-mix(in srgb,var(--ac) 50%,transparent);animation:mbtflash .5s ease-in-out 6 alternate}
+  @keyframes mbtflash{from{opacity:1}to{opacity:.25}}
+  #mbt-root .li[data-hl]{cursor:pointer;border-radius:6px}
+  #mbt-root .li[data-hl]:hover b{color:var(--ac)}
   #mbt-root .li{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #ffffff08}
   #mbt-root .li:first-of-type{border-top:0}
   #mbt-root .nm{flex:1;min-width:0}
@@ -697,6 +715,8 @@
     $('#mbt-sortlbl').textContent = sorting ? 'Zatrzymaj' : 'Sortuj: ' + SORT_LBL[S.sortMode];
     dm.classList.toggle('stop', depoBusy); dm.querySelector('span').textContent = depoBusy ? 'Zatrzymaj' : 'Połącz identyczne';
     ds.classList.toggle('stop', sorting); ds.querySelector('span').textContent = sorting ? 'Zatrzymaj' : 'Sortuj po jakości';
+    const dp = $('#mbt-dput');
+    dp.classList.toggle('stop', dpBusy); dp.querySelector('span').textContent = dpBusy ? 'Zatrzymaj' : 'Odłóż wybrane na tę stronę';
   }
 
   /* ---------- zdarzenia UI ---------- */
@@ -769,6 +789,12 @@
       toast('Bardzo mało: Przykładowa mikstura — 20 szt. (próg 50)', RED);
     }
     if (t.closest('[data-wtarget]')) setPick(!pick);
+    const hl = t.closest('[data-hl]');
+    if (hl) highlight(hl.dataset.hl, hl.dataset.hlloc);
+    const dpn = t.closest('[data-dpn]');
+    if (dpn) { dpSel = dpn.dataset.dpn; dpKey = ''; dpNames(); }
+    if (t.closest('#mbt-dput')) depoPut();
+    if (t.closest('#mbt-dsclear')) { $('#mbt-dsearch').value = ''; $('#mbt-dsout').style.display = 'none'; }
     const ds = t.closest('[data-dsort]');
     if (ds) sortDepo(ds.dataset.dsort);
   });
@@ -1022,8 +1048,34 @@
     out.innerHTML = `<div class="fh">${esc(f.head)}</div>` + f.rows.map(r => {
       const pill = r.r !== 'common' && r.r !== 'none' ? `<span class="pill" style="color:${RCOL[r.r] || '#9fb0b5'}">${esc(RAR[r.r] || r.r)}</span>` : '';
       const loc = r.b.map(([k, c]) => `<span>${k < 0 ? 'poza torbami' : 'T' + (k + 1)}${S.showCount ? ' ×' + c : ''}</span>`).join('');
-      return `<div class="li"><span class="nm"><b>${esc(r.n)}</b>${pill}</span><span class="loc">${loc}</span></div>`;
+      return `<div class="li" data-hl="${esc(r.n)}" data-hlloc="g" title="Kliknij, żeby podświetlić w torbie"><span class="nm"><b>${esc(r.n)}</b>${pill}</span><span class="loc">${loc}</span></div>`;
     }).join('') + (f.more ? `<div class="fh">…i ${f.more} więcej</div>` : '');
+  }
+  // podświetlenie przedmiotu na siatce gry (nakładka w oknie dodatku – nic w grze nie jest zmieniane)
+  function flash(ids) {
+    let n = 0;
+    document.querySelectorAll('.item[class*="item-id-"]').forEach(node => {
+      if (root.contains(node)) return;
+      const m = /item-id-(\d+)/.exec(cls(node));
+      if (!m || !ids.has(m[1])) return;
+      const r = node.getBoundingClientRect(), cs = getComputedStyle(node);
+      if (r.width <= 0 || r.height <= 0 || cs.display === 'none' || cs.visibility === 'hidden') return;
+      const d = document.createElement('div');
+      d.className = 'mbt-flash';
+      Object.assign(d.style, { left: r.left - 3 + 'px', top: r.top - 3 + 'px', width: r.width + 6 + 'px', height: r.height + 6 + 'px' });
+      root.appendChild(d); setTimeout(() => d.remove(), 3200); n++;
+    });
+    return n;
+  }
+  function highlight(name, loc) {
+    if (loc === 'd') {
+      if (!flash(new Set(readItems('d').filter(i => i.name === name).map(i => i.id)))) toast(`„${name}” nie leży na otwartej stronie depozytu`, YEL);
+      return;
+    }
+    const its = snap().items.filter(i => i.name === name && i.st === 0);
+    if (flash(new Set(its.map(i => i.id)))) return;
+    const bags = [...new Set(its.filter(i => i.bag >= 0).map(i => i.bag + 1))].sort();
+    toast(bags.length ? `„${name}” leży w: Torba ${bags.join(', ')} – otwórz ją w grze` : `Nie widzę „${name}” w torbach`, YEL);
   }
 
   function dups() {
@@ -1550,6 +1602,7 @@
   const depoShow = () => {
     const o = $('#mbt-depoout'), t = [depoTxt.study, depoTxt.rec].filter(Boolean).join('\n\n');
     o.style.display = t ? 'block' : 'none'; o.textContent = t;
+    uiShow();
   };
   function depoStudy() {
     const L = [`Badanie depozytu – Bag Tools ${VER}, ${new Date().toLocaleString('pl-PL')}`], counts = {}, locs = [];
@@ -1613,8 +1666,7 @@
   function depoRec() {
     if (drec) { clearInterval(drec.iv); recTick(); recLine('stop'); drec = null; }
     else { drec = { t0: Date.now(), log: [], last: itemMap(), iv: setInterval(recTick, 400) }; hookG(); recLine('start'); }
-    $('#mbt-deporec').textContent = drec ? '⏹ Zatrzymaj' : '⏺ Nagrywaj';
-    $('#mbt-deporec').classList.toggle('on', !!drec);
+    $$('#mbt-deporec,#mbt-uirec').forEach(b => { b.textContent = drec ? '⏹ Zatrzymaj' : '⏺ Nagrywaj'; b.classList.toggle('on', !!drec); });
   }
   async function depoCopy() {
     const t = $('#mbt-depoout').textContent;
@@ -1649,6 +1701,7 @@
           <span class="chip ${free >= need ? 'on' : 'bad'}">potrzeba ${need} wolnych w torbach · masz ${free}</span></div>`;
       } else html = '<div class="muted">Na tej stronie nie ma czego łączyć.</div>';
     }
+    if (!S.fold.dput) dpNames();
     $('#mbt-depohead').textContent = head;
     if (html !== depoHTML) $('#mbt-depoplan').innerHTML = depoHTML = html;
   }
@@ -1753,6 +1806,76 @@
     depoInfo();
   }
 
+  /* ---------- depozyt: szukanie (strony załadowane przez grę) ---------- */
+  function dfind() {
+    const terms = norm($('#mbt-dsearch').value).split(/\s+/).filter(Boolean), o = $('#mbt-dsout');
+    if (!terms.length) { o.style.display = 'none'; return; }
+    const all = readItems('d');
+    o.style.display = 'block';
+    if (!all.length) { o.classList.remove('rich'); o.textContent = 'Nie widzę przedmiotów depozytu – otwórz depozyt w grze.'; return; }
+    const vis = visibleIds(), by = {};
+    all.filter(i => terms.every(t => norm(i.name).includes(t))).forEach(i => (by[i.name] = by[i.name] || []).push(i));
+    const names = Object.keys(by).sort((a, b) => a.localeCompare(b, 'pl'));
+    o.classList.add('rich');
+    if (!names.length) { o.innerHTML = '<div class="fh">Nie znaleziono w załadowanych stronach depozytu.</div>'; return; }
+    o.innerHTML = `<div class="fh">Znaleziono ${names.length} poz. · szuka na stronach załadowanych przez grę</div>` + names.slice(0, 60).map(n => {
+      const its = by[n], r = its[0].rar, here = its.filter(i => vis.has(i.id)), sum = its.reduce((a, i) => a + i.amount, 0);
+      const pill = r !== 'common' && r !== 'none' ? `<span class="pill" style="color:${RCOL[r] || '#9fb0b5'}">${esc(RAR[r] || r)}</span>` : '';
+      const loc = (here.length ? `<span>ta strona ×${here.reduce((a, i) => a + i.amount, 0)}</span>` : '') + (its.length > here.length ? `<span>inna strona ×${sum - here.reduce((a, i) => a + i.amount, 0)}</span>` : '');
+      return `<div class="li" data-hl="${esc(n)}" data-hlloc="d" title="Kliknij, żeby podświetlić na otwartej stronie"><span class="nm"><b>${esc(n)}</b>${pill}</span><span class="loc">${loc}</span></div>`;
+    }).join('') + (names.length > 60 ? `<div class="fh">…i ${names.length - 60} więcej</div>` : '');
+  }
+
+  /* ---------- depozyt: odkładanie wybranego przedmiotu z toreb na otwartą stronę (depo&put, każdy krok sprawdzany) ---------- */
+  let dpSel = '', dpKey = '', dpBusy = false, dpStop = false;
+  function dpNames() {
+    const cnt = {};
+    snap().items.filter(i => i.st === 0 && i.bag >= 0).forEach(i => { cnt[i.name] = (cnt[i.name] || 0) + 1; });
+    const names = Object.keys(cnt).sort((a, b) => a.localeCompare(b, 'pl')).slice(0, 60);
+    if (dpSel && !cnt[dpSel]) dpSel = '';
+    const key = names.map(n => n + cnt[n]).join('|') + '#' + dpSel;
+    if (key === dpKey) return;
+    dpKey = key;
+    $('#mbt-dpnames').innerHTML = names.length
+      ? names.map(n => `<button class="chip${n === dpSel ? ' on' : ''}" data-dpn="${esc(n)}" title="Wybierz do odłożenia">${esc(n)}${cnt[n] > 1 ? ' ×' + cnt[n] : ''}</button>`).join('')
+      : '<span class="muted">Torby są puste.</span>';
+  }
+  async function depoPut() {
+    if (busy) { if (dpBusy) { dpStop = true; dsay('Zatrzymam po bieżącym stosie…'); } else dsay('Trwa inna akcja…'); return; }
+    if (!depoOpen()) return dsay('Otwórz depozyt w grze – na stronie, na którą chcesz odłożyć.');
+    if (!dpSel) return dsay('Wybierz przedmiot z listy powyżej.');
+    // prostokąt otwartej strony: z widocznych przedmiotów; pusta strona tylko gdy cały depozyt jest pusty (wtedy to 1. strona)
+    const pg = depoPage();
+    let x0 = 0, y0 = 0;
+    if (!pg.err) { x0 = pg.b.x0; y0 = pg.b.from; }
+    else if (!/nie widzę przedmiotów/.test(pg.err) || readItems('d').length) return dsay('Depozyt: ' + (/nie widzę przedmiotów/.test(pg.err) ? 'strona jest pusta i nie wiem, która to strona – przerywam. Odłóż ręcznie 1 przedmiot i spróbuj ponownie.' : pg.err));
+    const occ = new Set(readItems('d').map(i => i.x + ',' + i.y)), free = [];
+    for (let j = 0; j < DCOLS * DROWS; j++) { const x = x0 + j % DCOLS, y = y0 + Math.floor(j / DCOLS); if (!occ.has(x + ',' + y)) free.push([x, y]); }
+    const its = snap().items.filter(i => i.st === 0 && i.bag >= 0 && i.name === dpSel);
+    if (!its.length) return dsay(`W torbach nie ma „${dpSel}”.`);
+    if (!free.length) return dsay('Na tej stronie depozytu nie ma wolnego miejsca – przerywam.');
+    busy = dpBusy = true; dpStop = false; busyUI();
+    const n = Math.min(its.length, free.length), name = dpSel;
+    let done = 0, msg = '';
+    try {
+      for (let k = 0; k < n; k++) {
+        if (dpStop) { msg = 'Zatrzymano na Twoje kliknięcie.'; break; }
+        const it = its[k], [x, y] = free[k];
+        if (readItems('d').some(i => i.x === x && i.y === y)) { msg = 'Miejsce w depozycie się zajęło – przerywam.'; break; }
+        dsay(`Odkładam „${name}” do depozytu… ${k + 1} z ${n}\n(kliknij przycisk ponownie, żeby zatrzymać)`);
+        send(`depo&put=${it.id}&x=${x}&y=${y}`);
+        if (!(await waitFor(() => { const f = locate(it.id); return f && f.l === 'd' && f.it.x === x && f.it.y === y ? f : null; }))) {
+          msg = `Gra nie odłożyła „${it.name}” do depozytu – przerywam.`; break;
+        }
+        done++;
+        await sleep(200);
+      }
+    } finally { busy = dpBusy = false; busyUI(); }
+    dsay(`Depozyt: odłożono ${done} z ${its.length} stosów „${name}”.` +
+      (its.length > free.length ? `\nNa stronie było tylko ${free.length} wolnych miejsc – reszta została w torbie.` : '') + (msg ? '\n' + msg : ''));
+    dpKey = ''; depoInfo();
+  }
+
   /* ---------- ukrywanie innych graczy (wg skryptu użytkownika „usuwacz innych”, 10.2026) ----------
      Serwer przysyła innych graczy w polu `other`; przy włączonej opcji czyścimy je, zanim gra je przetworzy.
      Tylko wygląd u użytkownika – nic nie jest wysyłane do serwera. Flaga na window, żeby nowa wersja skryptu
@@ -1801,13 +1924,26 @@
     const ls = [];
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/widget|button|pos|layout|hud/i.test(k) && !/^mbt-/.test(k)) ls.push(`${k} = ${String(localStorage.getItem(k)).slice(0, 300)}`); } } catch {}
     L.push('localStorage (widget/pos/layout): ' + (ls.join('\n  ') || '-'));
-    L.push('Ostatnie komendy gry: ' + (cmds.slice(-10).map(c => c.c).join(' | ') || '-'));
+    // strzałka questowa i chodzenie: klucze Engine i pola postaci (tylko nazwy i proste wartości)
+    try {
+      const E = window.Engine || {}, desc = v => v && typeof v === 'object' ? '{' + Object.keys(v).slice(0, 40).join(',') + '}' : typeof v === 'function' ? 'funkcja' : String(v).slice(0, 40);
+      L.push('Engine – klucze z quest/arrow/follow/path/road/goto/walk/target: ' + (Object.keys(E).filter(k => /quest|arrow|follow|path|route|road|goto|walk|target|track/i.test(k)).map(k => `${k}:${desc(E[k])}`).join('\n  ') || '-'));
+      const H = E.hero || {}, hd = H.d || {};
+      L.push('Postać – pola z follow/path/road/target/auto/goto/walk/dest: ' + ([...new Set([...Object.keys(H), ...Object.keys(hd)])].filter(k => /follow|path|road|target|auto|goto|walk|dest|route|move/i.test(k))
+        .map(k => `${k}=${desc(H[k] !== undefined ? H[k] : hd[k])}`).join(' | ') || '-'));
+    } catch (e) { L.push('Strzałka: błąd ' + e.message); }
+    const qa = [...document.querySelectorAll('[class*="quest" i],[class*="arrow" i]')].filter(n => !root.contains(n) && n.getBoundingClientRect().width > 0);
+    L.push('Widoczne elementy quest/arrow: ' + (qa.slice(0, 20).map(n => n.tagName + '.' + cls(n).slice(0, 60)).join(' ; ') || '-'));
     uiRuns.push(L.join('\n'));
-    const o = $('#mbt-uiout'); o.style.display = 'block'; o.textContent = uiRuns.join('\n\n');
-    $('#mbt-uinote').textContent = uiRuns.length === 1 ? 'Teraz przesuń w grze dowolny przycisk z paska i kliknij Zbadaj jeszcze raz.' : 'Gotowe – kliknij Kopiuj wynik.';
+    uiShow();
+    $('#mbt-uinote').textContent = 'Zapisano badanie ' + uiRuns.length + '. Zrób kolejny krok z listy albo kliknij Kopiuj wynik.';
+  }
+  function uiShow() {
+    const o = $('#mbt-uiout'), t = [...uiRuns, depoTxt.rec].filter(Boolean).join('\n\n');
+    o.style.display = t ? 'block' : 'none'; o.textContent = t;
   }
   async function uiCopy() {
-    const t = uiRuns.join('\n\n');
+    const t = [...uiRuns, depoTxt.rec].filter(Boolean).join('\n\n');
     if (!t) return void ($('#mbt-uinote').textContent = 'Najpierw kliknij Zbadaj.');
     let ok = false;
     try { await navigator.clipboard.writeText(t); ok = true; } catch {}
@@ -1858,6 +1994,8 @@
   $('#mbt-depocopy').onclick = depoCopy;
   $('#mbt-uistudy').onclick = uiStudy;
   $('#mbt-uicopy').onclick = uiCopy;
+  $('#mbt-uirec').onclick = depoRec;
+  $('#mbt-dsearch').addEventListener('keydown', e => { if (e.key === 'Enter') dfind(); });
   $('#mbt-depomerge').onclick = depoMerge;
   $('#mbt-merge').onclick = merge;
   $('#mbt-lootclear').onclick = () => {
