@@ -2,7 +2,7 @@
 
 Userscript (Tampermonkey) do gry **Margonem**, tylko **nowy interfejs (NI)**.
 Plik skryptu: `margonem-bag-tools.user.js` (jeden plik, bez zależności).
-Aktualna wersja: **0.21.1** (20.10.2026).
+Aktualna wersja: **0.22.0** (20.10.2026).
 
 Komunikacja z użytkownikiem i cały interfejs skryptu: **po polsku**.
 **Instalacja:** w Tampermonkey jest tylko skrypt-ładowacz, który przy każdym wejściu do gry wczytuje
@@ -25,7 +25,7 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
    Nie dodawać nieaktywnych przycisków ani opcji bez widocznego efektu (prośba użytkownika, 0.15.0).
 2. **Każda zmiana w skrypcie = aktualizacja zakładki „Pomoc”** (zakładka `help` w tablicy `TABS`):
    - popraw lub dopisz opis w odpowiedniej sekcji (`h-start`, `h-merge`, `h-search`, `h-watch`, `h-loot`,
-     `h-sort`, `h-depo`, `h-others`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
+     `h-mods`, `h-sort`, `h-depo`, `h-others`, `h-keys`, `h-look`, `h-backup`, `h-diag`, `h-soon`, `h-unsure`),
    - dopisz wpis na górze sekcji **Historia zmian** (`h-log`),
    - podbij wersję w **dwóch** miejscach: `// @version` w nagłówku i `const VER`.
 3. **Informacje o grze sprawdzaj pod kątem aktualności** – gra często się zmienia, stare wpisy z forum bywają
@@ -53,6 +53,11 @@ Wczytuje pliki z GitHub Pages z dopiskiem `?v=<czas>` (bez pamięci podręcznej)
   Pasek błędu: `errBar(tytuł, opis)` / `errHide()`; `say()`/`dsay()` same wykrywają błąd (`ERR_RE`) i pokazują pasek.
   `busyUI()` zmienia przyciski sortowania/łączenia na „Zatrzymaj”. Wyniki szukania: `renderFind()` (lista, `S.lastFind`).
   Karta torby: `updateNote()`; karta depozytu: `depoInfo()`; postęp łączenia w depozycie: `depoProg()`.
+- **Dodatki osobno (0.22.0, prośba użytkownika):** `MODS` (torba, depo, watch, loot, others), stan `S.mods`, `on(id)`,
+  `tabOn(tab)`; zakładka `mods` („Dodatki”, karty `[data-mod]`). Wyłączony dodatek nie działa wcale: znika z paska
+  i okna, jego `watchTick`/`lootTick`/`sigTick`/`hookOthers` nie są wywoływane, skróty Torby odmawiają. Ukrywanie graczy
+  domyślnie wyłączone (bez nakładki na `parseJSON`, póki nie zainstalowane). Nowy dodatek = wpis w `MODS` + zakładka/
+  funkcje sprawdzające `on(id)`. Pierwsze uruchomienie z tą wersją (`firstMods`) otwiera listę dodatków.
 - **CSS:** zmienne `--ac` (akcent), `--a` (przezroczystość), `--sc` (skala), `--fs` (czcionka), motywy
   (`--bg`, `--card`, `--card2`, `--inp`, `--bd`, `--bd2`, `--rail`), klasa `.compact`. Schemat ustawień `sv: 3`.
 - **`place()` / `apply()` / `view()` / `arrange()`:** pozycje, wygląd, widoczność, układy okien.

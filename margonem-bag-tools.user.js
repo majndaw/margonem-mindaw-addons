@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem Bag Tools
 // @namespace    margonem-bag-tools
-// @version      0.21.1
+// @version      0.22.0
 // @description  Torba: szukanie, łączenie stosów, obserwowanie przedmiotów, dziennik zdobyczy (Margonem NI)
 // @match        https://www.margonem.pl/*
 // @match        https://*.margonem.pl/*
@@ -12,7 +12,7 @@
 
 (() => {
   'use strict';
-  const VER = '0.21.1';
+  const VER = '0.22.0';
   // nowa wersja przejmuje GUI po starej (stare okno i style są usuwane)
   const prev = document.getElementById('mbt-root');
   if (prev) { if (prev.dataset.v === VER) return; prev.remove(); }
@@ -34,6 +34,7 @@
     pos: { dock: [20, 100], main: [20, 100], watch: [1125, 100] },
     open: { watch: false }, min: {}, fold: { 'h-log': true, depostudy: true },
     history: [], rar: [], lastFind: null, tab: 'torba', sortMode: 'qual',
+    mods: { torba: true, depo: true, watch: true, loot: true, others: false },
     keys: { toggle: ['Alt', 'KeyT'], merge: ['Alt', 'KeyQ'], find: ['Alt', 'KeyF'] },
   };
   let saved = {};
@@ -42,7 +43,9 @@
   if ((saved.sv || 0) < 2) { S.scale = def.scale; S.sv = 2; }       // nowy, mniejszy domyślny rozmiar
   if ((saved.sv || 0) < 3) { S.alpha = Math.max(S.alpha, 90); S.sv = 3; }   // 0.21.0: nowy wygląd – mniej przezroczysty
   if (!['qual', 'name', 'type'].includes(S.sortMode)) S.sortMode = 'qual';
-  for (const k of ['pos', 'open', 'keys', 'min', 'fold']) S[k] = Object.assign({}, def[k], S[k] || {});
+  const firstMods = !saved.mods;                                   // 0.22.0: pierwszy raz z listą dodatków
+  for (const k of ['pos', 'open', 'keys', 'min', 'fold', 'mods']) S[k] = Object.assign({}, def[k], S[k] || {});
+  if (firstMods && saved.hideOthers) S.mods.others = true;          // kto używał ukrywania graczy – zostaje zainstalowane
   if (!Array.isArray(S.history)) S.history = [];
   if (!Array.isArray(S.rar)) S.rar = [];
   S.watch = (Array.isArray(S.watch) ? S.watch : []).filter(w => w && typeof w.name === 'string');
@@ -80,6 +83,7 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     warn: '<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5h.01"/>',
     target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    apps: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/>',
     copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   };
@@ -198,12 +202,18 @@
       html: `<div class="h"><b>Pomoc</b><span>opis wszystkich funkcji</span></div><div class="help">` +
         sec('h-start', 'Podstawy obsługi',
           `<ul>
-            <li>Wszystko jest w <b>jednym oknie</b>. Pasek ikon po lewej przełącza zakładki: Torba, Depozyt, Obserwowane, Zdobycze, a pod kreską Ustawienia i Pomoc. Ikona z ludźmi włącza/wyłącza ukrywanie graczy. Czerwona kropka przy oku = któryś obserwowany przedmiot się kończy.</li>
+            <li>Wszystko jest w <b>jednym oknie</b>. Pasek ikon po lewej przełącza zakładki: Torba, Depozyt, Obserwowane, Zdobycze, a pod kreską Dodatki, Ustawienia i Pomoc. Na pasku są tylko zainstalowane dodatki. Ikona z ludźmi włącza/wyłącza ukrywanie graczy. Czerwona kropka przy oku = któryś obserwowany przedmiot się kończy.</li>
             <li><b>Kropki</b> w lewym górnym rogu (siatka 3×3) służą do przesuwania – tylko one. Główne okno, małe okienko Obserwowane i ikonę M przesuwasz osobno.</li>
             <li><b>–</b> zwija okno do paska tytułu, <b>×</b> zamyka – zostaje mała ikona <b>M Mindaw</b>, kliknij ją, żeby wrócić. Kliknięcie w tytuł karty zwija ją (stan jest zapamiętywany).</li>
             <li>Gdy coś się nie uda, na dole okna pojawia się <b>czerwony pasek błędu</b> z opisem; znika po × albo przy następnej udanej akcji. „Reset układu” w Ustawieniach przywraca pozycje okien. Okno nie wyjdzie za krawędź ekranu.</li>
             <li>Numer wersji widać przy nazwie okna. Nowa wersja skryptu sama zastępuje starą (stare okno jest usuwane); ustawienia zostają.</li>
             <li><b>Ładowanie z GitHuba:</b> w Tampermonkey jest tylko mały skrypt-ładowacz, który przy każdym wejściu do gry wczytuje najnowszą wersję z GitHub Pages (majndaw.github.io/margonem-mindaw-addons). Zmiana w repozytorium działa po odświeżeniu gry, zwykle po kilku minutach od zapisania.</li>
+          </ul>`) +
+        sec('h-mods', 'Dodatki – instalowanie',
+          `<ul>
+            <li>Zakładka <b>Dodatki</b> (ikona kwadratów pod kreską na pasku) to lista dodatków: <b>Torba</b>, <b>Depozyt</b>, <b>Obserwowane przedmioty</b>, <b>Dziennik zdobyczy</b> i <b>Ukrywanie graczy</b>. Kliknięcie w kartę instaluje (włącza) albo wyłącza dodatek.</li>
+            <li>Wyłączony dodatek <b>nie działa wcale</b>: znika z paska i okna, nie sprawdza gry, nie pokazuje napisów. Jego ustawienia (np. lista obserwowanych) zostają zapamiętane na później.</li>
+            <li>Ukrywanie graczy jest domyślnie wyłączone; po wyłączeniu całkowicie znika po odświeżeniu gry. Przy pierwszym uruchomieniu tej wersji okno otwiera się na liście dodatków.</li>
           </ul>`) +
         sec('h-merge', 'Łączenie identycznych stosów',
           `<ul>
@@ -254,7 +264,7 @@
           </ul>`) +
         sec('h-others', 'Ukrywanie graczy',
           `<ul>
-            <li>Ikona <b>ludzi</b> na pasku po lewej (nad Ustawieniami) włącza i wyłącza ukrywanie innych graczy na mapie – podświetlona = ukryci. Ustawienie jest zapamiętywane.</li>
+            <li>Najpierw zainstaluj dodatek <b>Ukrywanie graczy</b> w zakładce Dodatki. Potem ikona <b>ludzi</b> na pasku po lewej włącza i wyłącza ukrywanie innych graczy na mapie – podświetlona = ukryci. Ustawienie jest zapamiętywane.</li>
             <li>Działa jak skrypt „usuwacz innych”: dane o innych graczach przysłane przez serwer są pomijane – tylko u Ciebie, nic nie jest wysyłane do gry.</li>
             <li>Gracze już widoczni znikną (albo po wyłączeniu – pojawią się) po <b>zmianie mapy lub odświeżeniu</b> gry.</li>
           </ul>`) +
@@ -299,6 +309,7 @@
           </ul>`) +
         sec('h-log', 'Historia zmian',
           `<ul>
+            <li><b>0.22.0</b> – zakładka <b>Dodatki</b>: każdy dodatek (Torba, Depozyt, Obserwowane, Zdobycze, Ukrywanie graczy) instaluje się i wyłącza osobno; wyłączony nie działa wcale.</li>
             <li><b>0.21.1</b> – Ustawienia: badanie paska przycisków gry (tylko odczyt) – przygotowanie do przycisku Mindaw w pasku gry.</li>
             <li><b>0.21.0</b> – <b>nowy wygląd</b>: jedno okno z paskiem zakładek (Torba, Depozyt, Obserwowane, Zdobycze, Ustawienia, Pomoc), ikony zamiast emoji, karty, czerwony pasek błędu na dole tylko przy błędzie, lista wyników szukania, postęp łączenia w depozycie, nowe małe okienko Obserwowane z paskami zapasu, nowe napisy na ekranie i ikona M po zamknięciu.</li>
             <li><b>0.20.0</b> – <b>👥 Gracze</b> w docku: ukrywanie innych graczy (jak „usuwacz innych”); w depozycie zostało tylko sortowanie po jakości.</li>
@@ -320,6 +331,22 @@
         `</div>`,
     },
   ];
+  // dodatki do zainstalowania (włączenia) osobno; wyłączony nie działa wcale – nie ma go w oknie i nie sprawdza gry
+  const MODS = [
+    { id: 'torba', icon: 'bag', title: 'Torba', d: 'Łączenie identycznych stosów, sortowanie i szukanie we wszystkich torbach.' },
+    { id: 'depo', icon: 'depo', title: 'Depozyt', d: 'Łączenie identycznych stosów i sortowanie po jakości na otwartej stronie depozytu.' },
+    { id: 'watch', icon: 'eye', title: 'Obserwowane przedmioty', d: 'Małe okienko z zapasem wybranych przedmiotów i alert, gdy się kończą.' },
+    { id: 'loot', icon: 'gift', title: 'Dziennik zdobyczy', d: 'Liczy heroiki, legendy i smocze runy z potworów i skrzynek.' },
+    { id: 'others', icon: 'users', title: 'Ukrywanie graczy', d: 'Przycisk na pasku, który ukrywa innych graczy na mapie (tylko u Ciebie).' },
+  ];
+  const on = id => !!S.mods[id];
+  const tabOn = t => !MODS.some(m => m.id === t) || on(t);
+  TABS.unshift({
+    id: 'mods', icon: 'apps', title: 'Dodatki',
+    html: `<div class="h"><b>Dodatki</b><span>zaznacz, których chcesz używać</span></div>
+      <div class="note">${ic('info')}<span>Wyłączony dodatek <b>nie działa wcale</b> – znika z okna i niczego nie sprawdza w grze. Ustawienia dodatku zostają zapamiętane na później.</span></div>
+      ${MODS.map(m => `<div class="card mod" data-mod="${m.id}"><span class="mi">${ic(m.icon)}</span><span class="grow"><b>${m.title}</b><small>${m.d}</small></span><span class="mst"></span><i class="msw"></i></div>`).join('')}`,
+  });
   const TAB_IDS = TABS.map(t => t.id);
   const SORT_LBL = { qual: 'jakość', name: 'nazwa', type: 'typ' };
   if (!TAB_IDS.includes(S.tab)) S.tab = 'torba';
@@ -475,6 +502,20 @@
   #mbt-root .err small{display:block;color:#e9a8a3;font-size:.92em;margin-top:2px}
   #mbt-root .err small:empty{display:none}
   #mbt-root .err .ibtn{color:#ffb3ad}
+  #mbt-root .mod{display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .15s}
+  #mbt-root .mod:hover{border-color:var(--bd2)}
+  #mbt-root .mod .mi{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;background:var(--inp);border:1px solid var(--bd);color:var(--tx3)}
+  #mbt-root .mod .mi svg.ic{width:19px;height:19px}
+  #mbt-root .mod b{display:block;font-weight:600}
+  #mbt-root .mod small{display:block;color:var(--tx3);font-size:.9em;margin-top:1px}
+  #mbt-root .mod .mst{font-size:.85em;color:var(--tx3);white-space:nowrap}
+  #mbt-root .mod .msw{flex:none;position:relative;width:34px;height:20px;border-radius:99px;background:var(--inp);border:1px solid var(--bd2)}
+  #mbt-root .mod .msw::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:var(--tx3);transition:.15s}
+  #mbt-root .mod.on{border-color:color-mix(in srgb,var(--ac) 45%,var(--bd))}
+  #mbt-root .mod.on .mi{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,var(--bd))}
+  #mbt-root .mod.on .mst{color:var(--ac)}
+  #mbt-root .mod.on .msw{background:color-mix(in srgb,var(--ac) 35%,var(--inp));border-color:var(--ac)}
+  #mbt-root .mod.on .msw::after{left:17px;background:var(--ac)}
   #mbt-root .wl{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #ffffff08}
   #mbt-root .wl:first-child{border-top:0}
   #mbt-root .wl .wn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -544,10 +585,10 @@
       <button class="ibtn" data-min="main" title="Zwiń / rozwiń">${ic('min')}</button><button class="ibtn" data-act="closeAll" title="Zamknij (zostaje ikona M)">${ic('x')}</button></header>
     <div class="mid">
       <nav class="rail">
-        ${TABS.filter(t => !['set', 'help'].includes(t.id)).map(railBtn).join('')}
+        ${TABS.filter(t => !['mods', 'set', 'help'].includes(t.id)).map(railBtn).join('')}
         <button class="ri" data-act="others">${ic('users')}</button>
         <span class="rsep"></span>
-        ${TABS.filter(t => ['set', 'help'].includes(t.id)).map(railBtn).join('')}
+        ${TABS.filter(t => ['mods', 'set', 'help'].includes(t.id)).map(railBtn).join('')}
       </nav>
       <div class="body">${TABS.map(t => `<div class="tab" data-tab="${t.id}">${t.html}</div>`).join('')}</div>
     </div>
@@ -612,10 +653,14 @@
     applyFold(); place();
   }
   function view() {
-    S.open.watch = !!S.watchShow;
+    if (!tabOn(S.tab)) S.tab = 'mods';
+    S.open.watch = !!S.watchShow && on('watch');
     el.main.classList.toggle('show', dockOpen);
     el.main.classList.toggle('min', !!S.min.main);
-    el.watch.classList.toggle('show', !!S.watchShow);
+    el.watch.classList.toggle('show', S.open.watch);
+    $$('[data-go]').forEach(b => { b.style.display = tabOn(b.dataset.go) ? '' : 'none'; });
+    $('[data-act=others]').style.display = on('others') ? '' : 'none';
+    $$('[data-mod]').forEach(c => { c.classList.toggle('on', on(c.dataset.mod)); c.querySelector('.mst').textContent = on(c.dataset.mod) ? 'zainstalowany' : 'wyłączony'; });
     el.icon.classList.toggle('show', !dockOpen);
     S.dock = dockOpen;
     $$('[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === S.tab));
@@ -659,6 +704,15 @@
     const t = e.target;
     if (rec && !t.closest('[data-kb]')) stopRec();
     if (!t.closest('.split')) $('#mbt-sortmenu').classList.remove('show');
+    const md = t.closest('[data-mod]');
+    if (md) {
+      const id = md.dataset.mod, m = MODS.find(x => x.id === id);
+      S.mods[id] = !S.mods[id];
+      if (id === 'others') { window.__mbtHideOthers = on('others') && !!S.hideOthers; if (on('others')) hookOthers(); }
+      if (id === 'watch' && !on('watch')) $('[data-go=watch]').classList.remove('alert');
+      view(); bgTick();
+      toast(on(id) ? `Zainstalowano: ${m.title}` : `Wyłączono: ${m.title}` + (id === 'others' ? ' (całkiem po odświeżeniu gry)' : ''), on(id) ? OK : YEL);
+    }
     const go = t.closest('[data-go]');
     if (go) { S.tab = go.dataset.go; S.min.main = false; view(); }
     const tg = t.closest('[data-tg]');
@@ -1411,7 +1465,7 @@
       sigInfo = { loot: [...L].slice(0, 6), excl: [...X].slice(0, 6) };
     } catch {}
   }
-  setInterval(sigTick, 500);
+  setInterval(() => { if (on('loot')) sigTick(); }, 500);
   const lootbox = it => {
     try {
       const r = it.ref;
@@ -1477,7 +1531,8 @@
     try {
       const sn = snap();
       if (!sn.L.length) return;
-      watchTick(sn); lootTick(sn);
+      if (on('watch')) watchTick(sn);
+      if (on('loot')) lootTick(sn); else lootSeen = null;   // po ponownym włączeniu nowy punkt odniesienia
     } catch {}
   }
   setInterval(bgTick, 2000);
@@ -1838,7 +1893,8 @@
     if (THEMES[o.theme]) S.theme = o.theme;
     ['compact', 'showCount', 'lootToast', 'lootLoose', 'watchShow', 'hideOthers']
       .forEach(k => { if (typeof o[k] === 'boolean') S[k] = o[k]; });
-    window.__mbtHideOthers = !!S.hideOthers;
+    if (o.mods && typeof o.mods === 'object') MODS.forEach(m => { if (typeof o.mods[m.id] === 'boolean') S.mods[m.id] = o.mods[m.id]; });
+    window.__mbtHideOthers = on('others') && !!S.hideOthers;
     S.watchCrit = Math.floor(num(o.watchCrit, 1, 99, S.watchCrit)); S.watchRemind = Math.floor(num(o.watchRemind, 0, 3600, S.watchRemind));
     if (o.pos && typeof o.pos === 'object') {
       for (const k of Object.keys(def.pos)) { const p = o.pos[k]; if (Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) S.pos[k] = [p[0], p[1]]; }
@@ -1859,8 +1915,8 @@
   /* ---------- własne skróty klawiszowe (1–3 klawisze naraz) ---------- */
   const ACTIONS = [
     { id: 'toggle', label: 'Otwórz/zamknij okno', run() { dockOpen = !dockOpen; view(); } },
-    { id: 'merge', label: 'Połącz identyczne (torba)', run() { dockOpen = true; S.tab = 'torba'; view(); merge(); } },
-    { id: 'find', label: 'Szukaj przedmiotu', run() { dockOpen = true; S.tab = 'torba'; S.fold.search = false; S.min.main = false; applyFold(); view(); $('#mbt-search').focus(); } },
+    { id: 'merge', label: 'Połącz identyczne (torba)', run() { if (!on('torba')) return toast('Dodatek Torba jest wyłączony (zakładka Dodatki)', YEL); dockOpen = true; S.tab = 'torba'; view(); merge(); } },
+    { id: 'find', label: 'Szukaj przedmiotu', run() { if (!on('torba')) return toast('Dodatek Torba jest wyłączony (zakładka Dodatki)', YEL); dockOpen = true; S.tab = 'torba'; S.fold.search = false; S.min.main = false; applyFold(); view(); $('#mbt-search').focus(); } },
   ];
   const tok = c => /^Alt/.test(c) ? 'Alt' : /^Control/.test(c) ? 'Ctrl' : /^Shift/.test(c) ? 'Shift' : /^(Meta|OS)/.test(c) ? 'Meta' : c;
   const NAMES = { Space: 'Spacja', Escape: 'Esc', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Backquote: '`', Minus: '-', Equal: '=' };
@@ -1936,8 +1992,10 @@
   /* ---------- start ---------- */
   renderKeys(); renderHist(); renderWList(); renderLoot();
   hookG(); setInterval(hookG, 10000);
-  window.__mbtHideOthers = !!S.hideOthers;
-  hookOthers(); setInterval(hookOthers, 2000);
+  window.__mbtHideOthers = on('others') && !!S.hideOthers;
+  if (on('others')) hookOthers();
+  setInterval(() => { if (on('others')) hookOthers(); }, 2000);
+  if (firstMods) { S.tab = 'mods'; dockOpen = true; }       // pierwszy raz: pokaż listę dodatków
   apply(); view();
   if (S.lastFind) renderFind(S.lastFind);
 })();
